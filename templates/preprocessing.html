@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Data Preprocessing & Pipeline Isolation | FoldWise AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="fw-bold mb-1" style="font-size: 1.75rem; letter-spacing: -0.02em;">Data Preprocessing & Zero-Leakage Pipeline Architecture</h2>
+            <p class="text-secondary mb-0" style="font-size: 0.9rem;">
+                Strict Scikit-learn Pipeline isolation: Scalers, imputers, and encoders are fit exclusively inside training folds to eliminate data leakage.
+            </p>
+        </div>
+        <span class="badge-pill success">
+            <i class="bi bi-shield-check"></i> Zero Data Leakage Enforced
+        </span>
+    </div>
+
+    <!-- Data Leakage Hazard Warning & Architectural Principle Card -->
+    <div class="fw-card mb-4" style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.25);">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge-pill success"><i class="bi bi-shield-lock-fill"></i> Methodological Rigor</span>
+                    <span class="text-secondary small">Preventing Evaluation Bias</span>
+                </div>
+                <h5 class="fw-bold text-light mb-2">Why Preprocessing Leakage Ruins Machine Learning Models</h5>
+                <p class="text-secondary small mb-2" style="line-height: 1.6;">
+                    When numerical features are standardized using parameters ($\mu, \sigma$) computed across the entire dataset before splitting, information from the test fold leaks into the training process. This artificially reduces test error, masks overfitting, and produces models that fail catastrophically in deployment.
+                </p>
+                <div class="text-secondary small">
+                    <strong class="text-success">FoldWise AI Guarantee:</strong> Every transformer is bound inside a <code>sklearn.compose.ColumnTransformer</code> and <code>sklearn.pipeline.Pipeline</code>. When cross-validation runs, <code>fit()</code> is called only on the training indices of that fold; the validation fold is evaluated strictly with <code>transform()</code>.
+                </div>
+            </div>
+            <div class="col-lg-4 text-center mt-3 mt-lg-0">
+                <div class="p-3 rounded text-start" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color);">
+                    <div class="small fw-bold text-info mb-1"><i class="bi bi-code-square me-1"></i> Pipeline Isolation Code</div>
+                    <code class="text-light small" style="font-size: 0.78rem; display: block; line-height: 1.5;">
+                        pipeline = Pipeline([<br>
+                        &nbsp;&nbsp;('preprocessor', col_transformer),<br>
+                        &nbsp;&nbsp;('model', estimator)<br>
+                        ])<br>
+                        # Inside Fold k:<br>
+                        pipeline.fit(X_train_k, y_train_k)<br>
+                        score = pipeline.score(X_val_k, y_val_k)
+                    </code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Preprocessing Inspector -->
+    <div class="row g-4 mb-4">
+        <!-- Configuration Controls -->
+        <div class="col-lg-4">
+            <div class="fw-card h-100">
+                <div class="fw-card-header">
+                    <div class="fw-card-title">
+                        <i class="bi bi-sliders text-primary"></i>
+                        Pipeline Configuration
+                    </div>
+                </div>
+
+                <form id="pipelineInspectForm">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">Select Dataset to Inspect</label>
+                        <select class="form-select bg-dark text-light border-secondary" id="preprocDatasetSelect">
+                            <option value="iris" selected>Iris Dataset (4 Numeric Features)</option>
+                            <option value="breast_cancer">Breast Cancer (30 Numeric Features)</option>
+                            <option value="wine_quality">Wine Quality Red (11 Numeric Features)</option>
+                            <option value="air_passengers">Airline Passengers (Time-Series Autoregressive)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">Numerical Feature Scaling</label>
+                        <select class="form-select bg-dark text-light border-secondary" id="preprocScalingSelect">
+                            <option value="standard" selected>StandardScaler (Zero mean, Unit variance)</option>
+                            <option value="minmax">MinMaxScaler (Bound to [0, 1] range)</option>
+                            <option value="none">None (Passthrough raw numeric values)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">Missing Value Imputation Strategy</label>
+                        <select class="form-select bg-dark text-light border-secondary" id="preprocImputeSelect">
+                            <option value="mean" selected>Mean Imputation</option>
+                            <option value="median">Median Imputation (Robust to Outliers)</option>
+                            <option value="most_frequent">Most Frequent (Mode)</option>
+                        </select>
+                    </div>
+
+                    <div id="lagConfigBox" class="mb-3 p-3 rounded" style="display: none; background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.3);">
+                        <label class="form-label small fw-bold text-warning"><i class="bi bi-clock-history me-1"></i> Time-Series Lag Orders</label>
+                        <p class="text-secondary small mb-2">Backwards-looking lags (t-1, t-2, t-3). Future observations are never accessed.</p>
+                        <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" id="preprocLagsInput" value="1, 2, 3">
+                    </div>
+
+                    <button type="button" class="btn-primary-custom w-100 justify-content-center" id="inspectPipelineBtn">
+                        <i class="bi bi-search"></i>
+                        <span>Inspect Active Pipeline</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Live Architecture Inspection View -->
+        <div class="col-lg-8">
+            <div class="fw-card h-100" id="pipelineInspectionCard">
+                <div class="fw-card-header">
+                    <div>
+                        <div class="fw-card-title">
+                            <i class="bi bi-diagram-3 text-info"></i>
+                            <span id="activePipelineTitle">Scikit-Learn Pipeline Structure: Iris</span>
+                        </div>
+                        <div class="fw-card-subtitle" id="activePipelineSubtitle">Verified zero-leakage ColumnTransformer configuration</div>
+                    </div>
+                </div>
+
+                <div id="pipelineInspectionBody">
+                    <!-- Transformation Flowchart Cards -->
+                    <div class="d-flex flex-column gap-3 mb-4">
+                        <!-- Numerical Branch -->
+                        <div class="p-3 rounded" style="background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2);">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold text-info"><i class="bi bi-calculator me-1"></i> Numerical Feature Sub-Pipeline</span>
+                                <span class="badge bg-secondary-subtle text-light" id="numFeaturesCount">4 Features</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                <div class="px-3 py-1 rounded bg-dark border border-secondary small text-light">
+                                    <strong>Step 1:</strong> SimpleImputer (<span id="imputeStrategyLabel">mean</span>)
+                                </div>
+                                <i class="bi bi-arrow-right text-muted"></i>
+                                <div class="px-3 py-1 rounded bg-dark border border-secondary small text-light">
+                                    <strong>Step 2:</strong> Scaler (<span id="scalingStrategyLabel">StandardScaler</span>)
+                                </div>
+                            </div>
+                            <div class="small text-muted" id="numericalFeaturesList">
+                                Columns: sepal length (cm), sepal width (cm), petal length (cm), petal width (cm)
+                            </div>
+                        </div>
+
+                        <!-- Categorical Branch -->
+                        <div class="p-3 rounded" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2);">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold text-light"><i class="bi bi-tags me-1"></i> Categorical Feature Sub-Pipeline</span>
+                                <span class="badge bg-secondary-subtle text-light" id="catFeaturesCount">0 Features</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                <div class="px-3 py-1 rounded bg-dark border border-secondary small text-light">
+                                    <strong>Step 1:</strong> SimpleImputer (most_frequent)
+                                </div>
+                                <i class="bi bi-arrow-right text-muted"></i>
+                                <div class="px-3 py-1 rounded bg-dark border border-secondary small text-light">
+                                    <strong>Step 2:</strong> OneHotEncoder (handle_unknown='ignore')
+                                </div>
+                            </div>
+                            <div class="small text-muted" id="categoricalFeaturesList">
+                                No categorical columns detected in this benchmark dataset.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pipeline Verification Badges -->
+                    <div class="d-flex flex-wrap gap-2 pt-3 border-top border-secondary-subtle">
+                        <span class="badge-pill success">
+                            <i class="bi bi-check-circle-fill"></i> ColumnTransformer: Validated
+                        </span>
+                        <span class="badge-pill info">
+                            <i class="bi bi-box-seam"></i> In-Fold Fit Isolation: Active
+                        </span>
+                        <span class="badge-pill primary">
+                            <i class="bi bi-arrow-repeat"></i> Out-of-Sample Transform: Safe
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const datasetSelect = document.getElementById('preprocDatasetSelect');
+    const scalingSelect = document.getElementById('preprocScalingSelect');
+    const imputeSelect = document.getElementById('preprocImputeSelect');
+    const lagBox = document.getElementById('lagConfigBox');
+    const inspectBtn = document.getElementById('inspectPipelineBtn');
+
+    function updateLagVisibility() {
+        if (datasetSelect.value === 'air_passengers') {
+            lagBox.style.display = 'block';
+        } else {
+            lagBox.style.display = 'none';
+        }
+    }
+
+    datasetSelect.addEventListener('change', () => {
+        updateLagVisibility();
+        inspectPipeline();
+    });
+    scalingSelect.addEventListener('change', inspectPipeline);
+    imputeSelect.addEventListener('change', inspectPipeline);
+    if (inspectBtn) inspectBtn.addEventListener('click', inspectPipeline);
+
+    function inspectPipeline() {
+        const dataset = datasetSelect.value;
+        const scaling = scalingSelect.value;
+        const imputation = imputeSelect.value;
+        
+        fetch(`/api/preprocessing/inspect?dataset_name=${dataset}&scaling=${scaling}&imputation=${imputation}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    showToast('Inspection Error', data.error, 'danger');
+                    return;
+                }
+                document.getElementById('activePipelineTitle').textContent = `Scikit-Learn Pipeline Structure: ${data.dataset_name}`;
+                document.getElementById('numFeaturesCount').textContent = `${data.num_count} Features`;
+                document.getElementById('catFeaturesCount').textContent = `${data.cat_count} Features`;
+                document.getElementById('imputeStrategyLabel').textContent = data.imputation;
+                document.getElementById('scalingStrategyLabel').textContent = data.scaling === 'standard' ? 'StandardScaler' : (data.scaling === 'minmax' ? 'MinMaxScaler' : 'None');
+                
+                document.getElementById('numericalFeaturesList').textContent = data.numerical_features.length > 0 
+                    ? `Columns: ${data.numerical_features.join(', ')}`
+                    : 'No numeric features.';
+                    
+                document.getElementById('categoricalFeaturesList').textContent = data.categorical_features.length > 0
+                    ? `Columns: ${data.categorical_features.join(', ')}`
+                    : 'No categorical columns detected in this benchmark dataset.';
+            })
+            .catch(err => {
+                showToast('Error', err.message, 'danger');
+            });
+    }
+
+    // Run initial inspection
+    updateLagVisibility();
+    inspectPipeline();
+});
+</script>
+{% endblock %}

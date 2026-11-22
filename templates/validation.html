@@ -1,0 +1,658 @@
+{% extends "base.html" %}
+
+{% block title %}Cross-Validation Lab & Strategy Sandbox | FoldWise AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="fw-bold mb-1" style="font-size: 1.75rem; letter-spacing: -0.02em;">Cross-Validation Lab & Strategy Sandbox</h2>
+            <p class="text-secondary mb-0" style="font-size: 0.9rem;">
+                Empirically explore the mathematical differences between K-Fold, Stratified K-Fold, Nested Cross-Validation, and Time-Series Splits.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('training_view') }}" class="btn-primary-custom">
+                <i class="bi bi-play-circle-fill"></i>
+                <span>Training Studio</span>
+            </a>
+            <a href="{{ url_for('comparison_view') }}" class="btn-secondary-custom">
+                <i class="bi bi-bar-chart-fill me-1"></i> Model Comparison
+            </a>
+        </div>
+    </div>
+
+    <!-- 1. Intelligent Strategy Advisor & Dataset Diagnostic Tool -->
+    <div class="fw-card mb-4" style="background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(245,158,11,0.04)); border: 1px solid rgba(99,102,241,0.3);">
+        <div class="fw-card-header flex-wrap gap-2">
+            <div>
+                <div class="fw-card-title text-light">
+                    <i class="bi bi-lightbulb-fill text-warning me-2"></i>
+                    <span>Intelligent Strategy Advisor & Dataset Diagnostics</span>
+                </div>
+                <div class="fw-card-subtitle">
+                    Diagnose dataset properties (class imbalance, temporal continuity, sample volume) to automatically identify the optimal cross-validation strategy.
+                </div>
+            </div>
+            <button class="btn-primary-custom btn-sm" id="runAdvisorBtn">
+                <i class="bi bi-search me-1"></i>
+                <span>Diagnose & Recommend</span>
+            </button>
+        </div>
+
+        <div class="row g-3 align-items-center mb-3">
+            <div class="col-md-6">
+                <label class="form-label small text-secondary mb-1">Target Dataset for Diagnostic Analysis</label>
+                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="advisorDatasetSelect">
+                    <option value="breast_cancer" selected>Breast Cancer Wisconsin (Imbalanced 37% / 63%)</option>
+                    <option value="iris">Iris Flower (3 Balanced Classes)</option>
+                    <option value="wine_quality">Wine Quality Red (Continuous Regression)</option>
+                    <option value="air_passengers">Airline Passengers (Sequential Chronological)</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small text-secondary mb-1">Target Column (Optional Override)</label>
+                <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" id="advisorTargetInput" placeholder="Auto-detect from dataset registry">
+            </div>
+        </div>
+
+        <!-- Strategy Advisor Results Container -->
+        <div id="advisorResultsContainer" style="display: none;" class="mt-4 pt-3 border-top border-secondary-subtle">
+            <!-- Diagnostics Quick Stats -->
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-3">
+                    <div class="p-2 rounded bg-dark border border-secondary text-center">
+                        <div class="small text-muted text-uppercase">Sample Volume</div>
+                        <div class="fs-5 fw-bold text-light" id="diagSamples">-</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="p-2 rounded bg-dark border border-secondary text-center">
+                        <div class="small text-muted text-uppercase">Dimensionality</div>
+                        <div class="fs-5 fw-bold text-light" id="diagFeatures">-</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="p-2 rounded bg-dark border border-secondary text-center">
+                        <div class="small text-muted text-uppercase">Imbalance Ratio</div>
+                        <div class="fs-5 fw-bold text-warning" id="diagImbalance">-</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="p-2 rounded bg-dark border border-secondary text-center">
+                        <div class="small text-muted text-uppercase">Temporal Continuity</div>
+                        <div class="fs-5 fw-bold text-info" id="diagSequential">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommendation Champion Card -->
+            <div class="p-3 rounded mb-3" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3);">
+                <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                    <span class="fs-5 fw-bold text-success" id="recStrategyTitle">Recommended: Stratified K-Fold</span>
+                    <span class="badge-pill success" id="recConfidenceBadge">96% Confidence</span>
+                </div>
+                <p class="text-light small mb-2" id="recPrimaryRationale">
+                    <!-- Rationale text -->
+                </p>
+                <div class="small text-secondary" id="recSampleSizeAdvice">
+                    <!-- Sample size text -->
+                </div>
+            </div>
+
+            <!-- Compatibility Matrix & Hazard Warnings -->
+            <div class="row g-3 mb-2">
+                <div class="col-lg-7">
+                    <div class="p-3 rounded h-100 bg-dark border border-secondary">
+                        <div class="fw-bold text-light small mb-2"><i class="bi bi-grid-3x3-gap-fill text-primary me-1"></i> Strategy Compatibility Matrix</div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-dark table-borderless small mb-0">
+                                <thead>
+                                    <tr class="text-secondary border-bottom border-secondary">
+                                        <th>Strategy</th>
+                                        <th>Status</th>
+                                        <th>Assessment</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="compatMatrixBody">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="p-3 rounded h-100 bg-dark border border-secondary">
+                        <div class="fw-bold text-danger small mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i> Statistical Hazards & Pitfalls</div>
+                        <div id="advisorHazardsList" class="small text-secondary">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Multi-Strategy Benchmarking Studio -->
+    <div class="fw-card mb-4" style="background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(16,185,129,0.04)); border: 1px solid rgba(99,102,241,0.25);">
+        <div class="fw-card-header flex-wrap gap-2">
+            <div>
+                <div class="fw-card-title text-light">
+                    <i class="bi bi-shuffle text-info me-2"></i>
+                    <span>Multi-Strategy Empirical Benchmarking Studio</span>
+                </div>
+                <div class="fw-card-subtitle">
+                    Run compatible cross-validation strategies side-by-side on the exact same model to observe variance and selection bias.
+                </div>
+            </div>
+            <button class="btn-primary-custom btn-sm" id="runMultiBenchmarkBtn">
+                <i class="bi bi-lightning-charge-fill me-1"></i>
+                <span>Benchmark Strategies</span>
+            </button>
+        </div>
+
+        <div class="row g-3 align-items-center mb-3">
+            <div class="col-md-4">
+                <label class="form-label small text-secondary mb-1">Dataset</label>
+                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="benchDataset">
+                    <option value="breast_cancer" selected>Breast Cancer Wisconsin (Imbalanced)</option>
+                    <option value="iris">Iris Flower (3 Classes)</option>
+                    <option value="wine_quality">Wine Quality Red (Regression)</option>
+                    <option value="air_passengers">Airline Passengers (Time-Series)</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-secondary mb-1">Model</label>
+                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="benchAlgo">
+                    <option value="LogisticRegression" selected>Logistic Regression</option>
+                    <option value="RandomForestClassifier">Random Forest Classifier</option>
+                    <option value="DecisionTreeClassifier">Decision Tree Classifier</option>
+                    <option value="SVC">Support Vector Machine (SVC)</option>
+                    <option value="LinearRegression">Linear Regression</option>
+                    <option value="RandomForestRegressor">Random Forest Regressor</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-secondary mb-1">Number of Folds ($k$)</label>
+                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="benchFolds" value="5" min="2" max="10">
+            </div>
+        </div>
+
+        <!-- Multi-Benchmark Output Area -->
+        <div id="benchResultsContainer" style="display: none;" class="mt-4 pt-3 border-top border-secondary-subtle">
+            <!-- Dynamic Strategy Comparison Cards Container -->
+            <div class="row g-3 mb-4" id="strategyCardsRow">
+                <!-- Injected dynamically -->
+            </div>
+
+            <!-- Plotly Variance & Score Plot -->
+            <div id="sideBySidePlot" style="height: 300px; width: 100%;"></div>
+
+            <!-- Empirical Takeaways List -->
+            <div class="alert alert-dark border-secondary small mt-3 mb-0" id="benchTakeaways">
+                <!-- Dynamically filled with empirical takeaways -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Fold Allocation Visualizer -->
+    <div class="fw-card mb-4">
+        <div class="fw-card-header flex-wrap gap-2">
+            <div>
+                <div class="fw-card-title text-light">
+                    <i class="bi bi-layers-half text-primary me-2"></i>
+                    <span>Cross-Validation Fold Allocation Visualizer</span>
+                </div>
+                <div class="fw-card-subtitle">
+                    Inspect sample index distributions between training folds and validation partitions.
+                </div>
+            </div>
+            <button class="btn btn-outline-info btn-sm" id="renderAllocPlotBtn">
+                <i class="bi bi-arrow-repeat me-1"></i> Update Fold Layout
+            </button>
+        </div>
+        <div class="row g-3 align-items-center mb-3">
+            <div class="col-md-4">
+                <label class="form-label small text-secondary mb-1">Dataset</label>
+                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="allocDataset">
+                    <option value="iris" selected>Iris (150 samples)</option>
+                    <option value="breast_cancer">Breast Cancer (569 samples)</option>
+                    <option value="air_passengers">Airline Passengers (144 samples)</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-secondary mb-1">Validation Strategy</label>
+                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="allocStrategy">
+                    <option value="stratified" selected>Stratified K-Fold</option>
+                    <option value="kfold">Standard K-Fold</option>
+                    <option value="timeseries">Time-Series Split</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-secondary mb-1">Number of Folds</label>
+                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="allocFolds" value="5" min="2" max="10">
+            </div>
+        </div>
+        <div id="foldAllocationPlot" style="height: 280px; width: 100%;"></div>
+    </div>
+
+    <!-- 4. The 4 Method Explanatory Cards -->
+    <div class="row g-4">
+        <!-- 1. K-Fold -->
+        <div class="col-lg-6">
+            <div class="fw-card h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="stat-icon" style="width: 36px; height: 36px; font-size: 1rem;">1</div>
+                            <h5 class="fw-bold mb-0">Standard K-Fold</h5>
+                        </div>
+                        <span class="badge-pill info">sklearn.model_selection.KFold</span>
+                    </div>
+                    <p class="text-secondary small mb-3">
+                        Partitions dataset into <em>k</em> equally sized subsets. Each fold is held out once for validation while <em>k-1</em> folds train the model.
+                    </p>
+                    <div class="p-3 rounded mb-3" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                        <div class="fw-semibold text-light small mb-1">Key Working Mechanics:</div>
+                        <ul class="text-muted small mb-0 ps-3">
+                            <li>Configurable number of folds (default: 5 or 10).</li>
+                            <li>Random shuffling with fixed seed for reproducibility.</li>
+                            <li>Computes sample mean, variance, and individual fold scores.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div>
+                    <div class="small text-warning mb-3">
+                        <i class="bi bi-exclamation-triangle me-1"></i> <strong>Critical Hazard:</strong> Random partitioning can create severe class imbalance across test folds on skewed datasets.
+                    </div>
+                    <a href="{{ url_for('training_view') }}?method=kfold" class="btn btn-sm btn-outline-info w-100">Configure K-Fold</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Stratified K-Fold -->
+        <div class="col-lg-6">
+            <div class="fw-card h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="stat-icon" style="width: 36px; height: 36px; font-size: 1rem; background: rgba(16, 185, 129, 0.12); color: var(--accent-success);">2</div>
+                            <h5 class="fw-bold mb-0">Stratified K-Fold</h5>
+                        </div>
+                        <span class="badge-pill success">sklearn.model_selection.StratifiedKFold</span>
+                    </div>
+                    <p class="text-secondary small mb-3">
+                        Rearranges the partitions so that each fold contains approximately the exact same percentage of each target class as the complete dataset.
+                    </p>
+                    <div class="p-3 rounded mb-3" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                        <div class="fw-semibold text-light small mb-1">Key Working Mechanics:</div>
+                        <ul class="text-muted small mb-0 ps-3">
+                            <li>Strictly preserves class proportions in every training and validation fold.</li>
+                            <li>Prevents rare-class dropouts in small or imbalanced datasets.</li>
+                            <li>Significantly reduces estimator variance across folds.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div>
+                    <div class="small text-success mb-3">
+                        <i class="bi bi-check-circle me-1"></i> <strong>Gold Standard:</strong> The recommended default validation method for classification.
+                    </div>
+                    <a href="{{ url_for('training_view') }}?method=stratified" class="btn btn-sm btn-outline-success w-100">Configure Stratified</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Nested CV -->
+        <div class="col-lg-6">
+            <div class="fw-card h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="stat-icon" style="width: 36px; height: 36px; font-size: 1rem; background: rgba(168, 85, 247, 0.12); color: var(--accent-purple);">3</div>
+                            <h5 class="fw-bold mb-0">Nested Cross-Validation</h5>
+                        </div>
+                        <span class="badge-pill primary">Double CV Loop</span>
+                    </div>
+                    <p class="text-secondary small mb-3">
+                        Decouples hyperparameter tuning from performance evaluation. Standard CV with grid tuning suffers from selection bias because parameters are chosen to maximize the test score.
+                    </p>
+                    <div class="p-3 rounded mb-3" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                        <div class="fw-semibold text-light small mb-1">Double-Loop Design:</div>
+                        <ul class="text-muted small mb-0 ps-3">
+                            <li><strong>Outer Loop:</strong> Evaluates genuine generalization error on isolated folds.</li>
+                            <li><strong>Inner Loop:</strong> Runs <code>GridSearchCV</code> strictly inside training folds to select optimal hyperparameters.</li>
+                            <li>Outer test data is never touched during hyperparameter tuning.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div>
+                    <div class="small text-info mb-3">
+                        <i class="bi bi-info-circle me-1"></i> <strong>Scientific Rigor:</strong> Eliminates selection bias, providing an honest performance estimate.
+                    </div>
+                    <a href="{{ url_for('training_view') }}?method=nested" class="btn btn-sm btn-outline-primary w-100">Configure Nested CV</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Time-Series CV -->
+        <div class="col-lg-6">
+            <div class="fw-card h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="stat-icon" style="width: 36px; height: 36px; font-size: 1rem; background: rgba(245, 158, 11, 0.12); color: var(--accent-warning);">4</div>
+                            <h5 class="fw-bold mb-0">Time-Series Cross-Validation</h5>
+                        </div>
+                        <span class="badge-pill warning">sklearn.model_selection.TimeSeriesSplit</span>
+                    </div>
+                    <p class="text-secondary small mb-3">
+                        Evaluates sequential forecasting models using historical expanding windows. Observations are strictly ordered in time to prevent future lookahead leakage.
+                    </p>
+                    <div class="p-3 rounded mb-3" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                        <div class="fw-semibold text-light small mb-1">Temporal Constraint Rules:</div>
+                        <ul class="text-muted small mb-0 ps-3">
+                            <li>Strictly chronological: Training window expands forward in time.</li>
+                            <li>Zero random shuffling: Data sequence is never permuted.</li>
+                            <li>Evaluated on MAE, RMSE, and zero-safe MAPE.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div>
+                    <div class="small text-danger mb-3">
+                        <i class="bi bi-x-circle me-1"></i> <strong>Never Apply K-Fold:</strong> Standard K-Fold leaks future information into past predictions, rendering evaluation invalid.
+                    </div>
+                    <a href="{{ url_for('training_view') }}?method=timeseries" class="btn btn-sm btn-outline-warning w-100">Configure Time-Series</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // -------------------------------------------------------------
+    // 1. Intelligent Strategy Advisor Logic
+    // -------------------------------------------------------------
+    const runAdvisorBtn = document.getElementById('runAdvisorBtn');
+    const advisorResultsContainer = document.getElementById('advisorResultsContainer');
+
+    if (runAdvisorBtn) {
+        runAdvisorBtn.addEventListener('click', () => {
+            const ds = document.getElementById('advisorDatasetSelect').value;
+            const target = document.getElementById('advisorTargetInput').value.trim() || null;
+
+            runAdvisorBtn.disabled = true;
+            runAdvisorBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Diagnosing Dataset...';
+
+            fetch('/api/recommendation/strategy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dataset_name: ds, target_column: target })
+            })
+            .then(res => res.json().then(data => ({ status: res.status, body: data })))
+            .then(({ status, body }) => {
+                runAdvisorBtn.disabled = false;
+                runAdvisorBtn.innerHTML = '<i class="bi bi-search me-1"></i> <span>Diagnose & Recommend</span>';
+
+                if (status === 200) {
+                    advisorResultsContainer.style.display = 'block';
+                    
+                    const d = body.diagnostics;
+                    const r = body.recommendation;
+
+                    document.getElementById('diagSamples').textContent = body.n_samples;
+                    document.getElementById('diagFeatures').textContent = body.n_features;
+                    document.getElementById('diagImbalance').textContent = `${d.imbalance_ratio}:1 ${d.is_imbalanced ? '(Imbalanced)' : '(Balanced)'}`;
+                    document.getElementById('diagSequential').textContent = d.is_sequential ? 'Sequential Time-Series' : 'I.I.D. Tabular';
+
+                    document.getElementById('recStrategyTitle').textContent = `Recommended: ${r.recommended_strategy} (k=${r.recommended_k} folds)`;
+                    document.getElementById('recConfidenceBadge').textContent = `${r.confidence_score}% Confidence`;
+                    document.getElementById('recPrimaryRationale').textContent = r.primary_rationale;
+                    document.getElementById('recSampleSizeAdvice').innerHTML = `<strong>Sample Size Context:</strong> ${r.sample_size_advice} &bull; ${r.tuning_note}`;
+
+                    // Populate compatibility matrix
+                    const matBody = document.getElementById('compatMatrixBody');
+                    matBody.innerHTML = body.compatibility_matrix.map(c => {
+                        let badgeClass = 'secondary';
+                        if (c.status.includes('RECOMMENDED')) badgeClass = 'success';
+                        else if (c.status.includes('ACCEPTABLE')) badgeClass = 'info';
+                        else if (c.status.includes('INCOMPATIBLE') || c.status.includes('HAZARDOUS')) badgeClass = 'danger';
+
+                        return `
+                            <tr>
+                                <td><strong>${c.strategy}</strong></td>
+                                <td><span class="badge bg-${badgeClass}">${c.status}</span></td>
+                                <td class="text-secondary small">${c.notes}</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    // Populate hazards
+                    const hazList = document.getElementById('advisorHazardsList');
+                    if (body.hazards && body.hazards.length > 0) {
+                        hazList.innerHTML = body.hazards.map(h => `
+                            <div class="mb-2 p-2 rounded" style="background: rgba(239, 68, 68, 0.08); border-left: 3px solid #EF4444;">
+                                <div class="fw-bold text-danger">${h.strategy}: ${h.hazard}</div>
+                                <div class="text-secondary">${h.description}</div>
+                            </div>
+                        `).join('');
+                    } else {
+                        hazList.innerHTML = '<div class="text-success"><i class="bi bi-check-circle me-1"></i> No critical hazards detected for standard partitioning.</div>';
+                    }
+
+                    showToast('Analysis Complete', `Diagnosed ${body.dataset_name}: ${r.recommended_strategy} recommended.`, 'success');
+                } else {
+                    showToast('Advisor Error', body.error || 'Diagnostic failed', 'danger');
+                }
+            })
+            .catch(err => {
+                runAdvisorBtn.disabled = false;
+                runAdvisorBtn.innerHTML = '<i class="bi bi-search me-1"></i> <span>Diagnose & Recommend</span>';
+                showToast('Error', err.message, 'danger');
+            });
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 2. Multi-Strategy Benchmarking Studio
+    // -------------------------------------------------------------
+    const runBenchBtn = document.getElementById('runMultiBenchmarkBtn');
+    const benchContainer = document.getElementById('benchResultsContainer');
+
+    if (runBenchBtn) {
+        runBenchBtn.addEventListener('click', () => {
+            const ds = document.getElementById('benchDataset').value;
+            const algo = document.getElementById('benchAlgo').value;
+            const folds = parseInt(document.getElementById('benchFolds').value || 5);
+
+            runBenchBtn.disabled = true;
+            runBenchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Evaluating Strategies...';
+
+            fetch('/api/validation/strategy-benchmark', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dataset_name: ds, algorithm: algo, n_splits: folds })
+            })
+            .then(res => res.json().then(data => ({ status: res.status, body: data })))
+            .then(({ status, body }) => {
+                runBenchBtn.disabled = false;
+                runBenchBtn.innerHTML = '<i class="bi bi-lightning-charge-fill me-1"></i> <span>Benchmark Strategies</span>';
+
+                if (status === 200) {
+                    benchContainer.style.display = 'block';
+
+                    const strats = body.strategies;
+                    const cardsRow = document.getElementById('strategyCardsRow');
+                    const stratNames = Object.keys(strats);
+
+                    cardsRow.innerHTML = stratNames.map(name => {
+                        const s = strats[name];
+                        const summary = s.summary;
+                        const isClass = body.task_type === 'classification';
+                        const scoreVal = summary.mean_score;
+                        const stdVal = summary.std_score;
+
+                        return `
+                            <div class="col-md-${12 / Math.min(stratNames.length, 3)}">
+                                <div class="p-3 rounded h-100" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color);">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="fw-bold text-light">${s.strategy}</span>
+                                        <span class="badge bg-${s.badge}">${s.methodological_status}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-baseline mb-2">
+                                        <span class="small text-muted">${isClass ? 'Accuracy (Mean)' : 'RMSE (Mean)'}:</span>
+                                        <span class="fs-5 fw-bold text-success">${scoreVal}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-baseline mb-2">
+                                        <span class="small text-muted">Standard Deviation (&sigma;):</span>
+                                        <span class="fs-5 fw-bold text-info">&plusmn; ${stdVal}</span>
+                                    </div>
+                                    <div class="small text-muted mb-2">
+                                        <strong>Range:</strong> [${summary.min_score} - ${summary.max_score}]
+                                    </div>
+                                    <div class="small text-secondary">
+                                        <strong>Runtime:</strong> ${s.execution_time}s
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    // Render Side-by-side Strategy Bar Plot
+                    renderStrategyComparePlot(strats, body.task_type);
+
+                    // Render Takeaways
+                    const takeawayElem = document.getElementById('benchTakeaways');
+                    takeawayElem.innerHTML = `
+                        <div class="fw-bold text-light mb-1"><i class="bi bi-info-circle-fill text-info me-1"></i> Empirical Strategy Findings:</div>
+                        <ul class="mb-0 ps-3">
+                            ${body.takeaways.map(t => `<li>${t}</li>`).join('')}
+                        </ul>
+                    `;
+
+                    showToast('Benchmark Complete', `Evaluated ${stratNames.length} strategies on ${body.dataset_name}.`, 'success');
+                } else {
+                    showToast('Benchmark Error', body.error || 'Execution failed', 'danger');
+                }
+            })
+            .catch(err => {
+                runBenchBtn.disabled = false;
+                runBenchBtn.innerHTML = '<i class="bi bi-lightning-charge-fill me-1"></i> <span>Benchmark Strategies</span>';
+                showToast('Error', err.message, 'danger');
+            });
+        });
+    }
+
+    function renderStrategyComparePlot(strategies, taskType) {
+        const plotElem = document.getElementById('sideBySidePlot');
+        const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
+
+        const names = Object.keys(strategies);
+        const scores = names.map(n => strategies[n].summary.mean_score);
+        const stds = names.map(n => strategies[n].summary.std_score);
+
+        const trace = {
+            x: names,
+            y: scores,
+            type: 'bar',
+            marker: {
+                color: names.map((_, i) => ['#10B981', '#38BDF8', '#6366F1', '#F59E0B'][i % 4])
+            },
+            error_y: {
+                type: 'data',
+                array: stds,
+                visible: true,
+                color: isDark ? '#E5E7EB' : '#374151'
+            }
+        };
+
+        const layout = {
+            title: {
+                text: `Reported Metric Comparison across Strategies (${taskType === 'classification' ? 'Accuracy' : 'RMSE'})`,
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 13 }
+            },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            xaxis: { gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
+            yaxis: {
+                title: taskType === 'classification' ? 'Accuracy' : 'RMSE',
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+            },
+            margin: { l: 50, r: 20, t: 35, b: 50 }
+        };
+
+        Plotly.newPlot(plotElem, [trace], layout, { responsive: true, displayModeBar: false });
+    }
+
+    // -------------------------------------------------------------
+    // 3. Fold Allocation Visualizer Logic
+    // -------------------------------------------------------------
+    const allocBtn = document.getElementById('renderAllocPlotBtn');
+    function updateFoldAllocationPlot() {
+        const ds = document.getElementById('allocDataset').value;
+        const method = document.getElementById('allocStrategy').value;
+        const folds = document.getElementById('allocFolds').value;
+
+        fetch(`/api/visualization/fold-allocation?dataset=${ds}&method=${method}&n_splits=${folds}`)
+        .then(res => res.json())
+        .then(data => {
+            renderFoldAllocationDiagram(data);
+        })
+        .catch(err => console.error(err));
+    }
+
+    function renderFoldAllocationDiagram(allocData) {
+        const plotElem = document.getElementById('foldAllocationPlot');
+        const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
+
+        const foldLabels = allocData.folds.map(f => `Fold ${f.fold}`);
+        const trainCounts = allocData.folds.map(f => f.train_count);
+        const valCounts = allocData.folds.map(f => f.val_count);
+
+        const traceTrain = {
+            y: foldLabels,
+            x: trainCounts,
+            name: 'Training Fold Samples',
+            type: 'bar',
+            orientation: 'h',
+            marker: { color: 'rgba(56, 189, 248, 0.85)' }
+        };
+
+        const traceVal = {
+            y: foldLabels,
+            x: valCounts,
+            name: 'Validation Partition Samples',
+            type: 'bar',
+            orientation: 'h',
+            marker: { color: 'rgba(16, 185, 129, 0.85)' }
+        };
+
+        const layout = {
+            title: {
+                text: `${allocData.validation_method.toUpperCase()} Allocation Matrix (Total Samples: ${allocData.n_samples})`,
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 13 }
+            },
+            barmode: 'stack',
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            xaxis: {
+                title: 'Sample Count Index',
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+            },
+            yaxis: { autorange: 'reversed' },
+            legend: { orientation: 'h', y: -0.25 },
+            margin: { l: 60, r: 20, t: 35, b: 60 }
+        };
+
+        Plotly.newPlot(plotElem, [traceTrain, traceVal], layout, { responsive: true, displayModeBar: false });
+    }
+
+    if (allocBtn) allocBtn.addEventListener('click', updateFoldAllocationPlot);
+    updateFoldAllocationPlot();
+});
+</script>
+{% endblock %}

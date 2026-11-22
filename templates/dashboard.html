@@ -1,0 +1,576 @@
+{% extends "base.html" %}
+
+{% block title %}Overview & Strategy Hub | FoldWise AI - ML Cross-Validation Platform{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Page Header with Live Actions -->
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge-pill primary"><i class="bi bi-speedometer2"></i> Live Telemetry</span>
+                <span class="text-secondary small">Academic Investigation Engine</span>
+            </div>
+            <h2 class="fw-bold mb-1" style="font-size: 1.75rem; letter-spacing: -0.02em;">Overview & Strategy Hub</h2>
+            <p class="text-secondary mb-0" style="font-size: 0.9rem;">
+                Investigating cross-validation strategies (K-Fold, Stratified, Nested, Time-Series) and their impact on generalization estimates and model selection.
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn-secondary-custom" id="btn-refresh-stats" onclick="refreshDashboardStats()">
+                <i class="bi bi-arrow-clockwise" id="refresh-icon"></i>
+                <span>Refresh Live</span>
+            </button>
+            <a href="{{ url_for('datasets_view') }}" class="btn-secondary-custom">
+                <i class="bi bi-folder-fill"></i>
+                <span>Explore Data</span>
+            </a>
+            <a href="{{ url_for('training_view') }}" class="btn-primary-custom">
+                <i class="bi bi-play-circle-fill"></i>
+                <span>Start Experiment</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 6 KPI Stat Metrics Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-2">
+            <div class="fw-card stat-card h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-label">Datasets</span>
+                    <div class="stat-icon" style="background: rgba(56, 189, 248, 0.12); color: var(--accent-info);">
+                        <i class="bi bi-database"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="kpi-datasets">{{ stats.dataset_count }}</div>
+                <div class="text-secondary small mt-1">
+                    <span class="text-info"><i class="bi bi-check-circle"></i> 4 Standard</span> + Uploads
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-2">
+            <div class="fw-card stat-card h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-label">CV Strategies</span>
+                    <div class="stat-icon" style="background: rgba(168, 85, 247, 0.12); color: var(--accent-purple);">
+                        <i class="bi bi-layers-half"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="kpi-strategies">4</div>
+                <div class="text-secondary small mt-1">
+                    K-Fold, Strat, Nested, TS
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-2">
+            <div class="fw-card stat-card h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-label">ML Models</span>
+                    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.12); color: var(--accent-success);">
+                        <i class="bi bi-cpu"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="kpi-models">9</div>
+                <div class="text-secondary small mt-1">
+                    5 Classifiers &bull; 4 Regressors
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-2">
+            <div class="fw-card stat-card h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-label">Experiments</span>
+                    <div class="stat-icon" style="background: rgba(245, 158, 11, 0.12); color: var(--accent-warning);">
+                        <i class="bi bi-journal-check"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="kpi-experiments">{{ stats.experiment_count }}</div>
+                <div class="text-secondary small mt-1">
+                    Recorded in SQLite
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-2">
+            <div class="fw-card stat-card h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-label">Comparisons</span>
+                    <div class="stat-icon" style="background: rgba(236, 72, 153, 0.12); color: #ec4899;">
+                        <i class="bi bi-bar-chart-steps"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="kpi-comparisons">{{ stats.comparison_count }}</div>
+                <div class="text-secondary small mt-1">
+                    Multi-Model Runs
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-2">
+            <div class="fw-card stat-card h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="stat-label">Avg Execution</span>
+                    <div class="stat-icon" style="background: rgba(99, 102, 241, 0.12); color: var(--accent-primary);">
+                        <i class="bi bi-stopwatch"></i>
+                    </div>
+                </div>
+                <div class="stat-value" id="kpi-latency">{{ "%.2f"|format(stats.avg_execution_time) }}s</div>
+                <div class="text-secondary small mt-1">
+                    Per Validation Split
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Research Problem Banner -->
+    <div class="fw-card mb-4" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(56, 189, 248, 0.05)); border: 1px solid rgba(99, 102, 241, 0.25);">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge-pill primary"><i class="bi bi-lightbulb-fill"></i> Research Scope</span>
+                    <span class="text-secondary small">Academic Investigation</span>
+                </div>
+                <h4 class="fw-bold mb-2">Cross-Validation Strategy Comparison & Generalization Assessment</h4>
+                <p class="text-secondary mb-3" style="font-size: 0.92rem; line-height: 1.6;">
+                    Evaluating a machine learning model using the wrong cross-validation technique leads to <strong>optimistic bias</strong>, <strong>data leakage</strong>, and <strong>suboptimal model selection</strong>. FoldWise AI provides an empirical testbed to observe how random partitioning fails on time-series sequences, how naive validation overestimates tuned models compared to Nested CV, and why class stratification is essential for imbalanced distributions.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-dark-subtle text-light border border-secondary-subtle px-3 py-2">
+                        <i class="bi bi-shield-check text-success me-1"></i> Zero Leakage Pipeline
+                    </span>
+                    <span class="badge bg-dark-subtle text-light border border-secondary-subtle px-3 py-2">
+                        <i class="bi bi-diagram-3 text-info me-1"></i> True Nested Tuning
+                    </span>
+                    <span class="badge bg-dark-subtle text-light border border-secondary-subtle px-3 py-2">
+                        <i class="bi bi-calendar-event text-warning me-1"></i> Strict Chronological Splits
+                    </span>
+                </div>
+            </div>
+            <div class="col-lg-4 text-center mt-3 mt-lg-0">
+                <a href="{{ url_for('validation_view') }}" class="btn-primary-custom w-100 justify-content-center py-3">
+                    <i class="bi bi-box-arrow-up-right me-2"></i>
+                    <span>Explore Cross-Validation Lab</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Interactive Visual Analytics Row -->
+    <div class="row g-4 mb-4">
+        <!-- Chart 1: Strategy Utilization Distribution -->
+        <div class="col-lg-6">
+            <div class="fw-card h-100">
+                <div class="fw-card-header">
+                    <div>
+                        <div class="fw-card-title">
+                            <i class="bi bi-pie-chart text-info"></i>
+                            Strategy Utilization Distribution
+                        </div>
+                        <div class="fw-card-subtitle">Empirical cross-validation experiments executed across strategies</div>
+                    </div>
+                </div>
+                <div id="chart-strategy-distribution" style="height: 280px; width: 100%;">
+                    <div class="d-flex align-items-center justify-content-center h-100 text-muted small">
+                        <i class="bi bi-arrow-repeat spin me-2"></i> Loading Strategy Distribution...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart 2: Benchmark Datasets Landscape -->
+        <div class="col-lg-6">
+            <div class="fw-card h-100">
+                <div class="fw-card-header">
+                    <div>
+                        <div class="fw-card-title">
+                            <i class="bi bi-bar-chart-line text-warning"></i>
+                            Benchmark Datasets Landscape
+                        </div>
+                        <div class="fw-card-subtitle">Sample volume (N) and feature dimensionality (P) across registered datasets</div>
+                    </div>
+                </div>
+                <div id="chart-dataset-landscape" style="height: 280px; width: 100%;">
+                    <div class="d-flex align-items-center justify-content-center h-100 text-muted small">
+                        <i class="bi bi-arrow-repeat spin me-2"></i> Loading Dataset Landscape...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Action Launchpads Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="method-card h-100">
+                <div>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="fw-bold mb-1">Standard K-Fold</h5>
+                        <span class="badge-pill info">Baseline</span>
+                    </div>
+                    <p class="text-secondary small mb-3">
+                        Splits dataset into <em>k</em> equally sized consecutive or shuffled folds. Each fold acts once as the validation test set.
+                    </p>
+                    <div class="mb-3">
+                        <div class="small fw-semibold text-light mb-1">Best Suited For:</div>
+                        <div class="small text-muted">&bull; Balanced i.i.d. classification<br>&bull; Standard tabular regression</div>
+                    </div>
+                </div>
+                <div class="pt-3 border-top border-secondary-subtle">
+                    <a href="{{ url_for('training_view') }}?method=kfold" class="btn btn-sm btn-outline-info w-100">
+                        <i class="bi bi-play-fill me-1"></i> Configure K-Fold
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="method-card h-100">
+                <div>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="fw-bold mb-1">Stratified K-Fold</h5>
+                        <span class="badge-pill success">Class-Preserved</span>
+                    </div>
+                    <p class="text-secondary small mb-3">
+                        Ensures every fold contains roughly the exact percentage of samples of each target class as the complete dataset.
+                    </p>
+                    <div class="mb-3">
+                        <div class="small fw-semibold text-light mb-1">Best Suited For:</div>
+                        <div class="small text-muted">&bull; Imbalanced class distributions<br>&bull; Multiclass classification</div>
+                    </div>
+                </div>
+                <div class="pt-3 border-top border-secondary-subtle">
+                    <a href="{{ url_for('training_view') }}?method=stratified" class="btn btn-sm btn-outline-success w-100">
+                        <i class="bi bi-play-fill me-1"></i> Configure Stratified
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="method-card h-100">
+                <div>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="fw-bold mb-1">Nested CV</h5>
+                        <span class="badge-pill primary">Unbiased Tuning</span>
+                    </div>
+                    <p class="text-secondary small mb-3">
+                        Outer loop estimates generalization error, while inner loop tunes hyperparameters via GridSearchCV without leakage.
+                    </p>
+                    <div class="mb-3">
+                        <div class="small fw-semibold text-light mb-1">Best Suited For:</div>
+                        <div class="small text-muted">&bull; Rigorous hyperparameter tuning<br>&bull; Eliminating model selection bias</div>
+                    </div>
+                </div>
+                <div class="pt-3 border-top border-secondary-subtle">
+                    <a href="{{ url_for('training_view') }}?method=nested" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-play-fill me-1"></i> Configure Nested
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="method-card h-100">
+                <div>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="fw-bold mb-1">Time-Series CV</h5>
+                        <span class="badge-pill warning">Temporal Split</span>
+                    </div>
+                    <p class="text-secondary small mb-3">
+                        Expanding or rolling historical windows. Observations are strictly chronological to prevent future-data lookahead leakage.
+                    </p>
+                    <div class="mb-3">
+                        <div class="small fw-semibold text-light mb-1">Best Suited For:</div>
+                        <div class="small text-muted">&bull; Sequential forecasting<br>&bull; Autoregressive lag models</div>
+                    </div>
+                </div>
+                <div class="pt-3 border-top border-secondary-subtle">
+                    <a href="{{ url_for('training_view') }}?method=timeseries" class="btn btn-sm btn-outline-warning w-100">
+                        <i class="bi bi-play-fill me-1"></i> Configure Time-Series
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity Ledger & Methodological Guarantees -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="fw-card h-100">
+                <div class="fw-card-header">
+                    <div>
+                        <div class="fw-card-title">
+                            <i class="bi bi-journal-text text-primary"></i>
+                            Recent Experiments Ledger
+                        </div>
+                        <div class="fw-card-subtitle">Real model runs executed on actual datasets</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('history_view') }}" class="btn btn-sm btn-outline-secondary">View All</a>
+                    </div>
+                </div>
+
+                <div id="recent-experiments-container">
+                    {% if recent_experiments and recent_experiments|length > 0 %}
+                    <div class="table-responsive">
+                        <table class="fw-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Dataset</th>
+                                    <th>Algorithm</th>
+                                    <th>CV Strategy</th>
+                                    <th>Primary Metric</th>
+                                    <th>Runtime</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-experiments-tbody">
+                                {% for exp in recent_experiments %}
+                                <tr>
+                                    <td><code class="text-info">{{ exp.experiment_id[:8] }}</code></td>
+                                    <td><strong>{{ exp.dataset_name }}</strong></td>
+                                    <td><span class="badge bg-secondary-subtle text-light">{{ exp.algorithm }}</span></td>
+                                    <td>
+                                        {% if 'stratified' in exp.validation_method.lower() %}
+                                            <span class="badge-pill success">{{ exp.validation_method }}</span>
+                                        {% elif 'nested' in exp.validation_method.lower() %}
+                                            <span class="badge-pill primary">{{ exp.validation_method }}</span>
+                                        {% elif 'time' in exp.validation_method.lower() %}
+                                            <span class="badge-pill warning">{{ exp.validation_method }}</span>
+                                        {% else %}
+                                            <span class="badge-pill info">{{ exp.validation_method }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if exp.task_type == 'classification' %}
+                                            <span class="text-success fw-bold">{{ "%.4f"|format(exp.metrics.accuracy|default(0)) }} (Acc)</span>
+                                        {% else %}
+                                            <span class="text-warning fw-bold">{{ "%.4f"|format(exp.metrics.rmse|default(0)) }} (RMSE)</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ "%.2f"|format(exp.execution_time) }}s</td>
+                                    <td class="text-muted small">{{ exp.created_at }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="mb-3">
+                            <i class="bi bi-inbox fs-1 text-muted"></i>
+                        </div>
+                        <h5 class="text-secondary fw-semibold">No Experiments Executed Yet</h5>
+                        <p class="text-muted small mb-4">Start your first cross-validation experiment using Iris, Breast Cancer, Wine Quality, or Air Passengers dataset.</p>
+                        <a href="{{ url_for('training_view') }}" class="btn-primary-custom">
+                            <i class="bi bi-plus-circle me-1"></i> Create First Experiment
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="fw-card h-100">
+                <div class="fw-card-header">
+                    <div>
+                        <div class="fw-card-title">
+                            <i class="bi bi-shield-check text-success"></i>
+                            Leakage Prevention Guarantee
+                        </div>
+                        <div class="fw-card-subtitle">Methodological rigor standards</div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-column gap-3">
+                    <div class="p-3 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                        <div class="fw-semibold text-light small mb-1">
+                            <i class="bi bi-check2-circle text-success me-1"></i> In-Fold Transformations
+                        </div>
+                        <div class="text-muted small">
+                            StandardScaler and SimpleImputer are strictly fitted inside each training fold via <code>sklearn.pipeline.Pipeline</code>.
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                        <div class="fw-semibold text-light small mb-1">
+                            <i class="bi bi-check2-circle text-success me-1"></i> Isolated Outer Test Folds
+                        </div>
+                        <div class="text-muted small">
+                            In Nested CV, GridSearchCV never sees outer test fold data, avoiding optimistic selection bias.
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                        <div class="fw-semibold text-light small mb-1">
+                            <i class="bi bi-check2-circle text-success me-1"></i> No Shuffling in Time-Series
+                        </div>
+                        <div class="text-muted small">
+                            Chronological integrity is strictly enforced with expanding windows and lag feature safety.
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                        <div class="fw-semibold text-light small mb-1">
+                            <i class="bi bi-check2-circle text-success me-1"></i> Zero Fabricated Metrics
+                        </div>
+                        <div class="text-muted small">
+                            All values come from real Scikit-learn model executions on genuine benchmark datasets.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Embedded Charts Data & Rendering Scripts -->
+<script>
+window.dashboardChartsPayload = {{ charts_payload|tojson }};
+
+function renderStrategyDonutChart(data) {
+    const el = document.getElementById('chart-strategy-distribution');
+    if (!el || typeof Plotly === 'undefined') return;
+
+    let values = data.values;
+    let labels = data.labels;
+    let colors = data.colors;
+
+    // Fallback if no experiments run yet
+    if (!data.has_data) {
+        values = [1, 1, 1, 1];
+        labels = ['Stratified K-Fold (Supported)', 'Standard K-Fold (Supported)', 'Nested CV (Supported)', 'Time-Series CV (Supported)'];
+    }
+
+    const trace = {
+        labels: labels,
+        values: values,
+        type: 'pie',
+        hole: 0.55,
+        marker: { colors: colors },
+        textinfo: data.has_data ? 'label+value' : 'label',
+        hoverinfo: 'label+value+percent',
+        textfont: { color: '#ffffff', size: 11 }
+    };
+
+    const layout = {
+        showlegend: true,
+        legend: { orientation: 'h', y: -0.15, font: { color: '#94a3b8', size: 10 } },
+        margin: { l: 20, r: 20, t: 20, b: 40 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent'
+    };
+
+    Plotly.newPlot(el, [trace], layout, { responsive: true, displayModeBar: false });
+}
+
+function renderDatasetLandscapeChart(data) {
+    const el = document.getElementById('chart-dataset-landscape');
+    if (!el || typeof Plotly === 'undefined') return;
+
+    const traceSamples = {
+        x: data.names,
+        y: data.samples,
+        name: 'Samples (N)',
+        type: 'bar',
+        marker: {
+            color: data.colors,
+            opacity: 0.85
+        },
+        text: data.samples.map((s, idx) => `${s} samples (${data.tasks[idx]})`),
+        textposition: 'auto',
+        textfont: { color: '#ffffff', size: 10 }
+    };
+
+    const traceFeatures = {
+        x: data.names,
+        y: data.features,
+        name: 'Features (P)',
+        type: 'scatter',
+        mode: 'lines+markers',
+        yaxis: 'y2',
+        marker: { color: '#ffffff', size: 9, symbol: 'diamond' },
+        line: { color: '#ffffff', width: 2, dash: 'dot' }
+    };
+
+    const layout = {
+        showlegend: true,
+        legend: { orientation: 'h', y: -0.2, font: { color: '#94a3b8', size: 11 } },
+        margin: { l: 45, r: 45, t: 20, b: 45 },
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        xaxis: {
+            tickfont: { color: '#94a3b8', size: 11 },
+            showgrid: false
+        },
+        yaxis: {
+            title: 'Sample Count (N)',
+            titlefont: { color: '#94a3b8', size: 11 },
+            tickfont: { color: '#94a3b8', size: 10 },
+            showgrid: true,
+            gridcolor: 'rgba(255, 255, 255, 0.05)'
+        },
+        yaxis2: {
+            title: 'Features (P)',
+            titlefont: { color: '#ffffff', size: 11 },
+            tickfont: { color: '#ffffff', size: 10 },
+            overlaying: 'y',
+            side: 'right',
+            showgrid: false
+        }
+    };
+
+    Plotly.newPlot(el, [traceSamples, traceFeatures], layout, { responsive: true, displayModeBar: false });
+}
+
+async function refreshDashboardStats() {
+    const icon = document.getElementById('refresh-icon');
+    if (icon) icon.classList.add('spin');
+
+    try {
+        const response = await fetch('/api/dashboard/stats');
+        if (!response.ok) throw new Error('Failed to fetch dashboard stats');
+        const data = await response.json();
+
+        // Update KPIs
+        if (data.stats) {
+            document.getElementById('kpi-datasets').innerText = data.stats.dataset_count || 4;
+            document.getElementById('kpi-experiments').innerText = data.stats.experiment_count || 0;
+            document.getElementById('kpi-comparisons').innerText = data.stats.comparison_count || 0;
+            document.getElementById('kpi-latency').innerText = (data.stats.avg_execution_time || 0).toFixed(2) + 's';
+        }
+
+        // Re-render charts
+        if (data.charts) {
+            renderStrategyDonutChart(data.charts.strategy_donut);
+            renderDatasetLandscapeChart(data.charts.dataset_landscape);
+        }
+    } catch (err) {
+        console.error('Error refreshing stats:', err);
+    } finally {
+        if (icon) icon.classList.remove('spin');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.dashboardChartsPayload) {
+        renderStrategyDonutChart(window.dashboardChartsPayload.strategy_donut);
+        renderDatasetLandscapeChart(window.dashboardChartsPayload.dataset_landscape);
+    }
+});
+</script>
+
+<style>
+.spin {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}

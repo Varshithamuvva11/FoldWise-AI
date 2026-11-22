@@ -1,0 +1,591 @@
+{% extends "base.html" %}
+
+{% block title %}Model Comparison & Recommendation Engine | FoldWise AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <div>
+            <h2 class="fw-bold mb-1" style="font-size: 1.75rem; letter-spacing: -0.02em;">Cross-Validation Strategy Comparison & Model Recommendation Engine</h2>
+            <p class="text-secondary mb-0" style="font-size: 0.9rem;">
+                Simultaneously train and evaluate multiple Machine Learning algorithms on actual datasets using verified zero-leakage cross-validation.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('training_view') }}" class="btn-secondary-custom">
+                <i class="bi bi-cpu me-1"></i> Single Training Studio
+            </a>
+            <a href="{{ url_for('validation_view') }}" class="btn-secondary-custom">
+                <i class="bi bi-shield-check me-1"></i> Strategy Sandbox
+            </a>
+        </div>
+    </div>
+
+    <!-- Comparative Execution Configuration Card -->
+    <div class="fw-card mb-4" style="background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(16,185,129,0.03)); border: 1px solid rgba(99,102,241,0.25);">
+        <div class="fw-card-header flex-wrap gap-2">
+            <div>
+                <div class="fw-card-title text-light">
+                    <i class="bi bi-sliders text-info me-2"></i>
+                    <span>Comparison Workbench Configuration</span>
+                </div>
+                <div class="fw-card-subtitle">
+                    Select target dataset, validation methodology, and candidate algorithms to run in parallel.
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge-pill info" id="taskTypeBadge">Task: Classification</span>
+            </div>
+        </div>
+
+        <form id="comparisonForm">
+            <div class="row g-3 mb-3">
+                <!-- 1. Dataset Selection -->
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-light">Dataset</label>
+                    <select class="form-select form-select-sm bg-dark text-light border-secondary" id="compDatasetSelect">
+                        <option value="breast_cancer" selected>Breast Cancer Wisconsin (569 samples)</option>
+                        <option value="iris">Iris Flower (150 samples)</option>
+                        <option value="wine_quality">Wine Quality Red (1,599 samples)</option>
+                        <option value="air_passengers">Airline Passengers (144 samples)</option>
+                    </select>
+                </div>
+
+                <!-- 2. Validation Strategy -->
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-light">Validation Strategy</label>
+                    <select class="form-select form-select-sm bg-dark text-light border-secondary" id="compStrategySelect">
+                        <option value="stratified" selected>Stratified K-Fold</option>
+                        <option value="kfold">Standard K-Fold</option>
+                        <option value="nested">Nested Cross-Validation</option>
+                        <option value="timeseries">Time-Series Split</option>
+                    </select>
+                </div>
+
+                <!-- 3. Primary Ranking Metric -->
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-light">Primary Ranking Metric</label>
+                    <select class="form-select form-select-sm bg-dark text-light border-secondary" id="compMetricSelect">
+                        <optgroup label="Classification Metrics" id="classMetricGroup">
+                            <option value="accuracy" selected>Accuracy (Mean Score)</option>
+                            <option value="f1_score">F1-Score (Weighted)</option>
+                            <option value="precision">Precision</option>
+                            <option value="recall">Recall</option>
+                            <option value="roc_auc">ROC-AUC</option>
+                        </optgroup>
+                        <optgroup label="Regression / Forecasting" id="regMetricGroup" style="display: none;">
+                            <option value="rmse">RMSE (Lower is Better)</option>
+                            <option value="mae">MAE (Mean Absolute Error)</option>
+                            <option value="r2_score">R² Score (Goodness of Fit)</option>
+                            <option value="mape">MAPE (Percentage Error)</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <!-- 4. Folds & Splits Configuration -->
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-light">Folds / Splits ($k$)</label>
+                    <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="compFoldsInput" value="5" min="2" max="10">
+                </div>
+            </div>
+
+            <!-- Algorithm Checkboxes Row -->
+            <div class="mb-3 p-3 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label small fw-bold text-light mb-0">Candidate Algorithms to Compare</label>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary btn-sm py-0" id="selectAllAlgosBtn">Select All</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm py-0" id="deselectAllAlgosBtn">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Classification Checkboxes -->
+                <div id="classifierCheckboxContainer" class="d-flex flex-wrap gap-2">
+                    <div class="form-check form-check-inline bg-dark px-3 py-1 rounded border border-secondary">
+                        <input class="form-check-input algo-checkbox" type="checkbox" value="LogisticRegression" id="algo_lr" checked>
+                        <label class="form-check-label small text-light" for="algo_lr">Logistic Regression</label>
+                    </div>
+                    <div class="form-check form-check-inline bg-dark px-3 py-1 rounded border border-secondary">
+                        <input class="form-check-input algo-checkbox" type="checkbox" value="DecisionTreeClassifier" id="algo_dt" checked>
+                        <label class="form-check-label small text-light" for="algo_dt">Decision Tree</label>
+                    </div>
+                    <div class="form-check form-check-inline bg-dark px-3 py-1 rounded border border-secondary">
+                        <input class="form-check-input algo-checkbox" type="checkbox" value="RandomForestClassifier" id="algo_rf" checked>
+                        <label class="form-check-label small text-light" for="algo_rf">Random Forest</label>
+                    </div>
+                    <div class="form-check form-check-inline bg-dark px-3 py-1 rounded border border-secondary">
+                        <input class="form-check-input algo-checkbox" type="checkbox" value="SVC" id="algo_svc" checked>
+                        <label class="form-check-label small text-light" for="algo_svc">Support Vector Machine (SVC)</label>
+                    </div>
+                    <div class="form-check form-check-inline bg-dark px-3 py-1 rounded border border-secondary">
+                        <input class="form-check-input algo-checkbox" type="checkbox" value="KNeighborsClassifier" id="algo_knn" checked>
+                        <label class="form-check-label small text-light" for="algo_knn">K-Nearest Neighbors (KNN)</label>
+                    </div>
+                </div>
+
+                <!-- Regression Checkboxes -->
+                <div id="regressorCheckboxContainer" class="d-flex flex-wrap gap-2" style="display: none;">
+                    <div class="form-check form-check-inline bg-dark px-3 py-1 rounded border border-secondary">
+                        <input class="form-check-input algo-checkbox" type="checkbox" value="LinearRegression" id="algo_linreg" checked>
+                        <label class="form-check-label small text-light" for="algo_linreg">Linear Regression</label>
+                    </div>
+                    <div class="form-check form-check-inline bg-dark px-3 py-1 rounded border border-secondary">
+                        <input class="form-check-input algo-checkbox" type="checkbox" value="DecisionTreeRegressor" id="algo_dtr" checked>
+                        <label class="form-check-label small text-light" for="algo_dtr">Decision Tree Regressor</label>
+                    </div>
+                    <div class="form-check form-check-inline bg-dark px-3 py-1 rounded border border-secondary">
+                        <input class="form-check-input algo-checkbox" type="checkbox" value="RandomForestRegressor" id="algo_rfr" checked>
+                        <label class="form-check-label small text-light" for="algo_rfr">Random Forest Regressor</label>
+                    </div>
+                    <div class="form-check form-check-inline bg-dark px-3 py-1 rounded border border-secondary">
+                        <input class="form-check-input algo-checkbox" type="checkbox" value="SVR" id="algo_svr" checked>
+                        <label class="form-check-label small text-light" for="algo_svr">Support Vector Regressor (SVR)</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Comparison Button -->
+            <button type="submit" class="btn-primary-custom w-100 justify-content-center py-2" id="runComparisonBtn">
+                <i class="bi bi-play-circle-fill fs-5"></i>
+                <span>Execute Multi-Model Comparison Engine</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Live Execution / Results Container -->
+    <div id="comparisonResultsContainer" style="display: none;">
+        <!-- 1. Best-Model Recommendation Banner -->
+        <div class="fw-card mb-4" id="recommendationBannerCard" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(99, 102, 241, 0.08)); border: 1px solid rgba(16, 185, 129, 0.3);">
+            <div class="d-flex align-items-start gap-3">
+                <div class="stat-icon" style="background: rgba(16, 185, 129, 0.2); color: var(--accent-success); min-width: 48px; min-height: 48px;">
+                    <i class="bi bi-trophy-fill fs-4"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                        <h4 class="fw-bold mb-0 text-light" id="winnerHeadline">Recommended Algorithm</h4>
+                        <span class="badge-pill success" id="winnerBadge">Rank #1 Champion</span>
+                    </div>
+                    <p class="text-light mb-2 fs-6" id="winnerNarrative">
+                        <!-- Filled dynamically -->
+                    </p>
+                    <div class="p-2 rounded bg-dark border border-secondary small text-secondary" id="deploymentVerdict">
+                        <!-- Deployment guidance -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Plotly Charts Grid -->
+        <div class="row g-4 mb-4">
+            <!-- Performance Bar Chart -->
+            <div class="col-lg-6">
+                <div class="fw-card h-100">
+                    <div class="fw-card-header">
+                        <div class="fw-card-title">
+                            <i class="bi bi-bar-chart-fill text-primary"></i>
+                            Model Performance Comparison (with &plusmn; &sigma; Error Bars)
+                        </div>
+                    </div>
+                    <div id="modelPerformanceChart" style="height: 340px; width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Variance & Stability Chart -->
+            <div class="col-lg-6">
+                <div class="fw-card h-100">
+                    <div class="fw-card-header">
+                        <div class="fw-card-title">
+                            <i class="bi bi-shield-check text-success"></i>
+                            Cross-Validation Stability (&sigma; Variance)
+                        </div>
+                    </div>
+                    <div id="modelStabilityChart" style="height: 340px; width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- 360 Degree Radar Chart & Efficiency Trade-off Row -->
+            <div class="col-lg-6">
+                <div class="fw-card h-100">
+                    <div class="fw-card-header">
+                        <div class="fw-card-title">
+                            <i class="bi bi-radar text-info"></i>
+                            360° Multi-Dimensional Profile (Radar Chart)
+                        </div>
+                    </div>
+                    <div id="modelRadarChart" style="height: 320px; width: 100%;"></div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="fw-card h-100">
+                    <div class="fw-card-header">
+                        <div class="fw-card-title">
+                            <i class="bi bi-stopwatch text-warning"></i>
+                            Predictive Quality vs Execution Time Trade-off
+                        </div>
+                    </div>
+                    <div id="modelTradeoffChart" style="height: 320px; width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Model Ranking Table -->
+        <div class="fw-card mb-4">
+            <div class="fw-card-header flex-wrap gap-2">
+                <div>
+                    <div class="fw-card-title text-light">
+                        <i class="bi bi-trophy text-warning me-2"></i>
+                        <span>Empirical Model Ranking & Performance Scorecard</span>
+                    </div>
+                    <div class="fw-card-subtitle" id="rankingTableSubtitle">
+                        Ranked dynamically using actual Scikit-learn cross-validation metrics.
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="fw-table" id="rankingTable">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Algorithm</th>
+                            <th>Primary Metric (&mu; &plusmn; &sigma;)</th>
+                            <th>Fold Score Range [Min - Max]</th>
+                            <th>Std Dev (&sigma;)</th>
+                            <th>Execution Time</th>
+                            <th>Recommendation Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rankingTableBody">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const datasetSelect = document.getElementById('compDatasetSelect');
+    const strategySelect = document.getElementById('compStrategySelect');
+    const metricSelect = document.getElementById('compMetricSelect');
+    const taskTypeBadge = document.getElementById('taskTypeBadge');
+    
+    const classCheckboxes = document.getElementById('classifierCheckboxContainer');
+    const regCheckboxes = document.getElementById('regressorCheckboxContainer');
+    const classMetricGroup = document.getElementById('classMetricGroup');
+    const regMetricGroup = document.getElementById('regMetricGroup');
+
+    const form = document.getElementById('comparisonForm');
+    const submitBtn = document.getElementById('runComparisonBtn');
+    const resultsContainer = document.getElementById('comparisonResultsContainer');
+
+    // Sync task type and available options when dataset changes
+    function syncDatasetConfig() {
+        const val = datasetSelect.value;
+        const isClass = (val === 'iris' || val === 'breast_cancer');
+        const isTimeSeries = (val === 'air_passengers');
+
+        if (isClass) {
+            taskTypeBadge.className = 'badge-pill info';
+            taskTypeBadge.textContent = 'Task: Classification';
+            classCheckboxes.style.display = 'flex';
+            regCheckboxes.style.display = 'none';
+            classMetricGroup.style.display = 'block';
+            regMetricGroup.style.display = 'none';
+            metricSelect.value = 'accuracy';
+            strategySelect.value = 'stratified';
+        } else if (isTimeSeries) {
+            taskTypeBadge.className = 'badge-pill warning';
+            taskTypeBadge.textContent = 'Task: Time-Series Forecasting';
+            classCheckboxes.style.display = 'none';
+            regCheckboxes.style.display = 'flex';
+            classMetricGroup.style.display = 'none';
+            regMetricGroup.style.display = 'block';
+            metricSelect.value = 'rmse';
+            strategySelect.value = 'timeseries';
+        } else {
+            // Wine quality regression
+            taskTypeBadge.className = 'badge-pill primary';
+            taskTypeBadge.textContent = 'Task: Regression';
+            classCheckboxes.style.display = 'none';
+            regCheckboxes.style.display = 'flex';
+            classMetricGroup.style.display = 'none';
+            regMetricGroup.style.display = 'block';
+            metricSelect.value = 'rmse';
+            strategySelect.value = 'kfold';
+        }
+    }
+
+    datasetSelect.addEventListener('change', syncDatasetConfig);
+    syncDatasetConfig();
+
+    // Select/Deselect All buttons
+    document.getElementById('selectAllAlgosBtn').addEventListener('click', () => {
+        document.querySelectorAll('.algo-checkbox').forEach(cb => {
+            if (cb.closest('div').parentElement.style.display !== 'none') {
+                cb.checked = true;
+            }
+        });
+    });
+
+    document.getElementById('deselectAllAlgosBtn').addEventListener('click', () => {
+        document.querySelectorAll('.algo-checkbox').forEach(cb => {
+            if (cb.closest('div').parentElement.style.display !== 'none') {
+                cb.checked = false;
+            }
+        });
+    });
+
+    // Form submission
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        // Collect selected algorithms
+        const selectedAlgos = [];
+        document.querySelectorAll('.algo-checkbox:checked').forEach(cb => {
+            if (cb.closest('div').parentElement.style.display !== 'none') {
+                selectedAlgos.push(cb.value);
+            }
+        });
+
+        if (selectedAlgos.length === 0) {
+            showToast('Selection Required', 'Please select at least one algorithm to evaluate.', 'warning');
+            return;
+        }
+
+        const payload = {
+            dataset_name: datasetSelect.value,
+            algorithms: selectedAlgos,
+            validation_method: strategySelect.value,
+            primary_metric: metricSelect.value,
+            n_splits: parseInt(document.getElementById('compFoldsInput').value || 5),
+            random_state: 42
+        };
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Evaluating Multiple Models In Parallel...';
+
+        fetch('/api/comparison/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json().then(data => ({ status: res.status, body: data })))
+        .then(({ status, body }) => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-play-circle-fill fs-5"></i> <span>Execute Multi-Model Comparison Engine</span>';
+
+            if (status === 200) {
+                renderComparisonResults(body);
+                showToast('Comparison Completed', `Successfully compared ${body.models_compared_count} algorithms on ${body.dataset_name}.`, 'success');
+            } else {
+                showToast('Comparison Error', body.error || 'Execution failed', 'danger');
+            }
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-play-circle-fill fs-5"></i> <span>Execute Multi-Model Comparison Engine</span>';
+            showToast('Connection Error', err.message, 'danger');
+        });
+    });
+
+    function renderComparisonResults(report) {
+        resultsContainer.style.display = 'block';
+
+        const rec = report.recommendation;
+        const rankings = report.rankings;
+        const chartData = report.chart_data;
+
+        // 1. Recommendation Banner
+        document.getElementById('winnerHeadline').textContent = rec.summary_headline;
+        document.getElementById('winnerBadge').textContent = `Top Recommended: ${rec.winner_algorithm}`;
+        document.getElementById('winnerNarrative').innerHTML = rec.detailed_narrative;
+        document.getElementById('deploymentVerdict').innerHTML = `<strong>Deployment Verdict:</strong> ${rec.deployment_verdict}`;
+
+        // 2. Ranking Table
+        document.getElementById('rankingTableSubtitle').textContent = 
+            `Evaluated on ${report.dataset_name} using ${report.validation_method.toUpperCase()} (${report.n_splits} folds) \u2022 Metric: ${rec.metric_label}`;
+
+        const tbody = document.getElementById('rankingTableBody');
+        tbody.innerHTML = rankings.map(m => {
+            const badgeClass = m.badge_class || 'secondary';
+            return `
+                <tr>
+                    <td><span class="badge bg-${badgeClass} fs-6">#${m.rank}</span></td>
+                    <td><strong>${m.algorithm}</strong></td>
+                    <td class="fw-bold text-success">${m.score} &plusmn; ${m.std}</td>
+                    <td class="text-secondary small">[${m.min_score} - ${m.max_score}]</td>
+                    <td class="text-info">${m.std}</td>
+                    <td class="text-muted small">${m.execution_time}s</td>
+                    <td><span class="badge-pill ${badgeClass}">${m.badge}</span></td>
+                </tr>
+            `;
+        }).join('');
+
+        // 3. Render Plotly Charts
+        renderPerformanceBarChart(chartData);
+        renderStabilityChart(chartData);
+        renderTradeoffChart(chartData);
+        if (chartData.radar_data) {
+            renderRadarChart(chartData.radar_data);
+        }
+
+        // Scroll to results
+        resultsContainer.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function renderPerformanceBarChart(cd) {
+        const plotElem = document.getElementById('modelPerformanceChart');
+        const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
+
+        const trace = {
+            x: cd.algorithms,
+            y: cd.scores,
+            type: 'bar',
+            marker: {
+                color: cd.scores.map((_, i) => i === 0 ? '#10B981' : '#6366F1')
+            },
+            error_y: {
+                type: 'data',
+                array: cd.stds,
+                visible: true,
+                color: isDark ? '#E5E7EB' : '#374151'
+            }
+        };
+
+        const layout = {
+            title: {
+                text: `Model Performance Ranking (${cd.metric_label})`,
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 13 }
+            },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            xaxis: { gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
+            yaxis: {
+                title: cd.metric_label,
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+            },
+            margin: { l: 50, r: 20, t: 35, b: 50 }
+        };
+
+        Plotly.newPlot(plotElem, [trace], layout, { responsive: true, displayModeBar: false });
+    }
+
+    function renderStabilityChart(cd) {
+        const plotElem = document.getElementById('modelStabilityChart');
+        const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
+
+        const trace = {
+            x: cd.algorithms,
+            y: cd.stds,
+            type: 'bar',
+            marker: { color: '#F59E0B' }
+        };
+
+        const layout = {
+            title: {
+                text: 'Cross-Validation Standard Deviation (Lower = More Consistent)',
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 13 }
+            },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            xaxis: { gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
+            yaxis: {
+                title: 'Standard Deviation (\u03C3)',
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+            },
+            margin: { l: 50, r: 20, t: 35, b: 50 }
+        };
+
+        Plotly.newPlot(plotElem, [trace], layout, { responsive: true, displayModeBar: false });
+    }
+
+    function renderTradeoffChart(cd) {
+        const plotElem = document.getElementById('modelTradeoffChart');
+        const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
+
+        const trace = {
+            x: cd.execution_times,
+            y: cd.scores,
+            mode: 'markers+text',
+            text: cd.algorithms,
+            textposition: 'top center',
+            type: 'scatter',
+            marker: {
+                size: 14,
+                color: cd.scores.map((_, i) => i === 0 ? '#10B981' : '#38BDF8'),
+                line: { color: '#ffffff', width: 1.5 }
+            }
+        };
+
+        const layout = {
+            title: {
+                text: 'Accuracy vs Execution Time Trade-off',
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 13 }
+            },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            xaxis: {
+                title: 'Execution Time (seconds)',
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+            },
+            yaxis: {
+                title: cd.metric_label,
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+            },
+            margin: { l: 50, r: 20, t: 35, b: 50 }
+        };
+
+        Plotly.newPlot(plotElem, [trace], layout, { responsive: true, displayModeBar: false });
+    }
+
+    function renderRadarChart(rd) {
+        const plotElem = document.getElementById('modelRadarChart');
+        if (!plotElem || !rd || !rd.traces || rd.traces.length === 0) return;
+        const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark';
+
+        const traces = rd.traces.map(t => ({
+            type: 'scatterpolar',
+            r: t.r,
+            theta: t.theta,
+            fill: t.fill,
+            name: t.name,
+            line: { color: t.color, width: 2 },
+            opacity: t.opacity
+        }));
+
+        const layout = {
+            title: {
+                text: '360° Multi-Dimensional Profile',
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 13 }
+            },
+            polar: {
+                radialaxis: {
+                    visible: true,
+                    range: [0, 100],
+                    gridcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    linecolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+                },
+                angularaxis: {
+                    gridcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    linecolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+                },
+                bgcolor: 'transparent'
+            },
+            paper_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            legend: { orientation: 'h', y: -0.25 },
+            margin: { l: 40, r: 40, t: 35, b: 60 }
+        };
+
+        Plotly.newPlot(plotElem, traces, layout, { responsive: true, displayModeBar: false });
+    }
+});
+</script>
+{% endblock %}

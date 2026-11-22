@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Settings & Academic Profile | FoldWise AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Page Header -->
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge-pill primary"><i class="bi bi-mortarboard-fill"></i> Capstone Project</span>
+                <span class="text-secondary small">Academic Research & Demonstration Specification</span>
+            </div>
+            <h2 class="fw-bold mb-1" style="font-size: 1.75rem; letter-spacing: -0.02em;">Settings & System Profile</h2>
+            <p class="text-secondary mb-0" style="font-size: 0.9rem;">
+                Platform technical specifications, live database telemetry, system preferences, and faculty demonstration walkthrough.
+            </p>
+        </div>
+        <span class="badge-pill info">Academic End-Semester Edition v1.0</span>
+    </div>
+
+    <div class="row g-4">
+        <!-- Academic Profile & Research Thesis -->
+        <div class="col-lg-7">
+            <div class="fw-card mb-4" style="background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(56,189,248,0.03)); border: 1px solid rgba(99,102,241,0.25);">
+                <div class="fw-card-header">
+                    <div class="fw-card-title text-light">
+                        <i class="bi bi-book-half text-primary me-2"></i>
+                        <span>Research Project Overview</span>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-column gap-3 text-secondary small">
+                    <div>
+                        <strong class="text-light d-block mb-1">Project Title:</strong>
+                        <span>Cross-validation Strategy Comparison (K-Fold, Stratified, Nested, Time-Series) and Its Effect on Reported Performance and Model Selection.</span>
+                    </div>
+                    <div>
+                        <strong class="text-light d-block mb-1">Core Research Thesis:</strong>
+                        <span>Evaluation methodology directly shapes reported model performance. Applying inappropriate validation schemes introduces severe statistical hazards: optimistic selection bias in naive hyperparameter tuning, class dropout in imbalanced datasets, and catastrophic lookahead leakage in sequential time-series forecasting.</span>
+                    </div>
+                    <div>
+                        <strong class="text-light d-block mb-1">Zero-Leakage Guarantee:</strong>
+                        <span>All transformations (<code>StandardScaler</code>, <code>SimpleImputer</code>, <code>OneHotEncoder</code>) are encapsulated within Scikit-Learn <code>Pipeline</code> objects and fitted strictly within training fold indices. Validation and test folds remain completely unobserved during preprocessing and fitting.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Faculty Demonstration Script -->
+            <div class="fw-card mb-4">
+                <div class="fw-card-header">
+                    <div class="fw-card-title text-light">
+                        <i class="bi bi-journal-code text-warning me-2"></i>
+                        <span>Faculty Demonstration Walkthrough</span>
+                    </div>
+                    <span class="badge-pill warning">5-Step Live Script</span>
+                </div>
+
+                <div class="timeline-steps">
+                    <div class="p-3 mb-2 rounded bg-dark border border-secondary">
+                        <div class="fw-bold text-light small mb-1">Step 1: Automated Validation Strategy Diagnosis</div>
+                        <p class="text-secondary small mb-0">Navigate to <strong>Cross-Validation Lab</strong>. Select <code>breast_cancer</code> and run the Strategy Advisor. Observe how an imbalance ratio of 1.68:1 automatically triggers Stratified K-Fold and flags Standard K-Fold as hazardous.</p>
+                    </div>
+
+                    <div class="p-3 mb-2 rounded bg-dark border border-secondary">
+                        <div class="fw-bold text-light small mb-1">Step 2: Empirical Stratification Contrast</div>
+                        <p class="text-secondary small mb-0">In the Benchmarking Studio, execute <strong>Benchmark Strategies</strong> on Breast Cancer. Show that Stratified K-Fold maintains identical class ratios in all validation partitions.</p>
+                    </div>
+
+                    <div class="p-3 mb-2 rounded bg-dark border border-secondary">
+                        <div class="fw-bold text-light small mb-1">Step 3: Quantifying Model Selection Bias with Nested CV</div>
+                        <p class="text-secondary small mb-0">Demonstrate double-loop Nested Cross-Validation. Point out how non-nested tuning reports an optimistic score, while Nested CV measures genuine generalization error.</p>
+                    </div>
+
+                    <div class="p-3 mb-2 rounded bg-dark border border-secondary">
+                        <div class="fw-bold text-light small mb-1">Step 4: Proving Lookahead Leakage on Time-Series Data</div>
+                        <p class="text-secondary small mb-0">Select <code>air_passengers</code> in Benchmarking. Compare Time-Series CV against Random K-Fold. Show that random shuffling artificially depresses RMSE by leaking future trends into past folds.</p>
+                    </div>
+
+                    <div class="p-3 rounded bg-dark border border-secondary">
+                        <div class="fw-bold text-light small mb-1">Step 5: Multi-Model Comparison & 360° Radar Visualization</div>
+                        <p class="text-secondary small mb-0">Open <strong>Model Comparison</strong>, select 5 classifiers on Breast Cancer, and click Execute. Present the dynamic rankings, stability standard deviations, and the 6-axis 360° radar chart.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Telemetry, Storage & Settings Column -->
+        <div class="col-lg-5">
+            <!-- Database & System Health -->
+            <div class="fw-card mb-4">
+                <div class="fw-card-header">
+                    <div class="fw-card-title text-light">
+                        <i class="bi bi-hdd-network-fill text-success me-2"></i>
+                        <span>System & Database Telemetry</span>
+                    </div>
+                    <span class="badge bg-success-subtle text-success">Healthy</span>
+                </div>
+
+                <div class="d-flex flex-column gap-2 small text-secondary">
+                    <div class="d-flex justify-content-between py-1 border-bottom border-secondary-subtle">
+                        <span>Database Engine:</span>
+                        <span class="text-light fw-bold">SQLite 3 (WAL Mode Enabled)</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom border-secondary-subtle">
+                        <span>Database File:</span>
+                        <code class="text-info">database/foldwise.db</code>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom border-secondary-subtle">
+                        <span>Total Experiments Logged:</span>
+                        <span class="text-light fw-bold">{{ db_stats.total_experiments }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom border-secondary-subtle">
+                        <span>Multi-Model Comparisons:</span>
+                        <span class="text-light fw-bold">{{ db_stats.total_comparisons }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom border-secondary-subtle">
+                        <span>Supported Algorithms:</span>
+                        <span class="text-light fw-bold">9 (5 Classifiers + 4 Regressors)</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1">
+                        <span>Supported CV Schemes:</span>
+                        <span class="text-light fw-bold">4 (K-Fold, Stratified, Nested, TS)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Default Execution Preferences Form -->
+            <div class="fw-card mb-4">
+                <div class="fw-card-header">
+                    <div class="fw-card-title text-light">
+                        <i class="bi bi-sliders text-info me-2"></i>
+                        <span>Default Experiment Preferences</span>
+                    </div>
+                </div>
+
+                <form id="settingsForm">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">Default Folds (k)</label>
+                        <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="defaultFolds" value="5" min="2" max="20">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">Default Random Seed</label>
+                        <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="defaultSeed" value="42">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">Default Scaling Strategy</label>
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary" id="defaultScaling">
+                            <option value="standard" selected>StandardScaler (Zero Mean, Unit Variance)</option>
+                            <option value="minmax">MinMaxScaler ([0, 1] Bounds)</option>
+                            <option value="none">Raw Features</option>
+                        </select>
+                    </div>
+
+                    <button type="button" class="btn-primary-custom w-100 justify-content-center btn-sm py-2" onclick="showToast('Preferences Saved', 'Default experiment parameters updated in localStorage.', 'success')">
+                        <i class="bi bi-check2-circle me-1"></i>
+                        <span>Save Preferences</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,749 @@
+{% extends "base.html" %}
+
+{% block title %}Model Training & Experimentation Studio | FoldWise AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="fw-bold mb-1" style="font-size: 1.75rem; letter-spacing: -0.02em;">Model Training Studio</h2>
+            <p class="text-secondary mb-0" style="font-size: 0.9rem;">
+                Select a dataset, choose a machine learning algorithm, configure your cross-validation strategy, and launch real Python model execution.
+            </p>
+        </div>
+        <div id="executionStatusBadge" class="badge-pill info">
+            <i class="bi bi-clock"></i> <span>Ready to Configure</span>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Configuration Form Column -->
+        <div class="col-lg-5 col-xl-4">
+            <div class="fw-card mb-4">
+                <div class="fw-card-header">
+                    <div class="fw-card-title">
+                        <i class="bi bi-sliders2 text-primary"></i>
+                        Experiment Configuration
+                    </div>
+                </div>
+
+                <form id="trainingConfigForm">
+                    <!-- 1. Dataset Selection -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">1. Select Benchmark Dataset</label>
+                        <select class="form-select bg-dark text-light border-secondary" id="trainDatasetSelect" name="dataset_name" required>
+                            <option value="iris" selected>Iris Flower (Multiclass Classification)</option>
+                            <option value="breast_cancer">Breast Cancer Wisconsin (Binary Classification)</option>
+                            <option value="wine_quality">Wine Quality Red (Tabular Regression)</option>
+                            <option value="air_passengers">Airline Passengers (Time-Series Forecasting)</option>
+                        </select>
+                    </div>
+
+                    <!-- 2. Target Column -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">2. Target Variable</label>
+                        <input type="text" class="form-control bg-dark text-light border-secondary" id="trainTargetInput" name="target_column" value="target" readonly>
+                        <small class="text-muted" id="trainTargetHint">Inferred from dataset schema</small>
+                    </div>
+
+                    <!-- 3. Validation Method -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">3. Validation Strategy</label>
+                        <select class="form-select bg-dark text-light border-secondary" id="trainMethodSelect" name="validation_method" required>
+                            <option value="stratified" selected>Stratified K-Fold (Preserves Class Proportions)</option>
+                            <option value="kfold">Standard K-Fold (Equal Partitions)</option>
+                            <option value="nested">Nested Cross-Validation (Double Loop with Tuning)</option>
+                            <option value="timeseries">Time-Series Cross-Validation (Chronological)</option>
+                        </select>
+                    </div>
+
+                    <!-- 4. ML Algorithm Selection -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-light">4. Machine Learning Algorithm</label>
+                        <select class="form-select bg-dark text-light border-secondary" id="trainAlgoSelect" name="algorithm" required>
+                            <optgroup label="Classification Models" id="classifierGroup">
+                                <option value="LogisticRegression" selected>Logistic Regression</option>
+                                <option value="RandomForestClassifier">Random Forest Classifier</option>
+                                <option value="DecisionTreeClassifier">Decision Tree Classifier</option>
+                                <option value="SVC">Support Vector Machine (SVC)</option>
+                                <option value="KNeighborsClassifier">K-Nearest Neighbors (KNN)</option>
+                            </optgroup>
+                            <optgroup label="Regression Models" id="regressorGroup" style="display: none;">
+                                <option value="LinearRegression">Linear Regression</option>
+                                <option value="RandomForestRegressor">Random Forest Regressor</option>
+                                <option value="DecisionTreeRegressor">Decision Tree Regressor</option>
+                                <option value="SVR">Support Vector Regressor (SVR)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <!-- 5. CV Parameters -->
+                    <div class="row g-2 mb-3" id="standardCvParamsRow">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold text-light">Number of Folds (k)</label>
+                            <input type="number" class="form-control bg-dark text-light border-secondary" id="trainNFolds" name="n_splits" value="5" min="2" max="20" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold text-light">Random Seed</label>
+                            <input type="number" class="form-control bg-dark text-light border-secondary" id="trainSeed" name="random_state" value="42" required>
+                        </div>
+                    </div>
+
+                    <!-- Nested CV Specific Double Loop Settings -->
+                    <div id="nestedConfigBox" class="mb-3 p-3 rounded" style="display: none; background: rgba(99, 102, 241, 0.08); border: 1px dashed rgba(99, 102, 241, 0.3);">
+                        <label class="form-label small fw-bold text-info"><i class="bi bi-diagram-3-fill me-1"></i> Nested CV Double Loop Parameters</label>
+                        <p class="text-secondary small mb-2">Outer folds evaluate generalization; inner folds run GridSearchCV strictly on training folds.</p>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="small text-secondary">Outer Folds (Generalization)</label>
+                                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="trainOuterFolds" value="5" min="2" max="10">
+                            </div>
+                            <div class="col-6">
+                                <label class="small text-secondary">Inner Folds (GridSearchCV)</label>
+                                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="trainInnerFolds" value="3" min="2" max="5">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Time-Series CV Specific Settings -->
+                    <div id="timeseriesConfigBox" class="mb-3 p-3 rounded" style="display: none; background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.3);">
+                        <label class="form-label small fw-bold text-warning"><i class="bi bi-clock-history me-1"></i> Time-Series Expanding Windows</label>
+                        <p class="text-secondary small mb-2">Chronological sequence strictly preserved. Shuffling is forbidden to eliminate lookahead leakage.</p>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="small text-secondary">Number of Splits</label>
+                                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="trainTsSplits" value="5" min="2" max="10">
+                            </div>
+                            <div class="col-6">
+                                <label class="small text-secondary">Horizon Gap (steps)</label>
+                                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="trainTsGap" value="0" min="0" max="12">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 6. Preprocessing Parameters -->
+                    <div class="row g-2 mb-4">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold text-light">Feature Scaling</label>
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary" id="trainScalingSelect">
+                                <option value="standard" selected>StandardScaler</option>
+                                <option value="minmax">MinMaxScaler</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold text-light">Missing Imputation</label>
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary" id="trainImputeSelect">
+                                <option value="mean" selected>Mean</option>
+                                <option value="median">Median</option>
+                                <option value="most_frequent">Mode</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary-custom w-100 justify-content-center py-2" id="executeExperimentBtn">
+                        <i class="bi bi-play-circle-fill fs-5"></i>
+                        <span>Execute Experiment</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Live Output & Results Column -->
+        <div class="col-lg-7 col-xl-8">
+            <div class="fw-card h-100" id="resultsCard">
+                <div class="fw-card-header">
+                    <div>
+                        <div class="fw-card-title">
+                            <i class="bi bi-graph-up text-success"></i>
+                            <span id="resultsHeaderTitle">Live Experiment Results</span>
+                        </div>
+                        <div class="fw-card-subtitle" id="resultsHeaderSubtitle">Verified actual Scikit-Learn evaluation results</div>
+                    </div>
+                </div>
+
+                <!-- Initial Idle Placeholder -->
+                <div id="resultsPlaceholder" class="text-center py-5 text-muted">
+                    <i class="bi bi-cpu fs-1 d-block mb-3 text-secondary"></i>
+                    <h5>No Experiment Executed Yet</h5>
+                    <p class="small text-muted mb-0">Configure parameters on the left and click <strong>"Execute Experiment"</strong> to train real models and observe fold metrics.</p>
+                </div>
+
+                <!-- Active Execution Results View -->
+                <div id="resultsActiveContainer" style="display: none;">
+                    <!-- Key Summary Metric Cards Row -->
+                    <div class="row g-3 mb-4" id="liveMetricsRow">
+                        <div class="col-6 col-md-3">
+                            <div class="p-3 rounded text-center" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2);">
+                                <div class="small text-muted text-uppercase" id="primaryMetricLabel">Mean Score (&mu;)</div>
+                                <div class="fs-4 fw-bold text-success" id="valMeanScore">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="p-3 rounded text-center" style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2);">
+                                <div class="small text-muted text-uppercase">Variance (&sigma;)</div>
+                                <div class="fs-4 fw-bold text-info" id="valStdScore">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="p-3 rounded text-center" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2);">
+                                <div class="small text-muted text-uppercase">Score Range [Min - Max]</div>
+                                <div class="fs-5 fw-bold text-warning" id="valMinMaxScore">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="p-3 rounded text-center" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color);">
+                                <div class="small text-muted text-uppercase">Execution Time</div>
+                                <div class="fs-4 fw-bold text-light" id="valExecutionTime">-</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Selection Bias / Nested CV Special Card -->
+                    <div id="nestedBiasCard" class="mb-4 p-3 rounded" style="display: none; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3);">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold text-info"><i class="bi bi-diagram-3-fill me-1"></i> Model Selection Bias Analysis (Nested CV)</span>
+                            <span class="badge-pill primary">Double Loop Analysis</span>
+                        </div>
+                        <div class="row g-2 mb-2 text-center">
+                            <div class="col-4">
+                                <div class="small text-muted">Inner Tuning Score (&mu;)</div>
+                                <div class="fs-5 fw-bold text-light" id="nestedInnerScore">-</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="small text-muted">Outer Generalization (&mu;)</div>
+                                <div class="fs-5 fw-bold text-success" id="nestedOuterScore">-</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="small text-muted">Optimistic Selection Bias</div>
+                                <div class="fs-5 fw-bold text-warning" id="nestedBiasScore">-</div>
+                            </div>
+                        </div>
+                        <p class="small text-secondary mb-0" id="nestedBiasExplanation"></p>
+                    </div>
+
+                    <!-- Time-Series Forecasting & Window Visualizer -->
+                    <div id="timeseriesForecastCard" class="mb-4" style="display: none;">
+                        <div class="fw-card p-3 mb-3" style="background: var(--bg-surface);">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold text-warning"><i class="bi bi-graph-up-arrow me-1"></i> Actual vs Out-of-Sample Forecasts</span>
+                                <span class="badge-pill warning">Strict Chronological Timeline</span>
+                            </div>
+                            <div id="timeSeriesForecastPlot" style="height: 320px; width: 100%;"></div>
+                        </div>
+                        <div class="fw-card p-3" style="background: var(--bg-surface);">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold text-info"><i class="bi bi-layers-half me-1"></i> Chronological Expanding Windows (Train vs Forecast Horizon)</span>
+                                <span class="badge-pill info">Zero Future Peeking</span>
+                            </div>
+                            <div id="timeSeriesWindowsPlot" style="height: 240px; width: 100%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Fold-wise Performance Plotly Chart -->
+                    <div class="fw-card mb-4 p-3" id="foldPerformanceCard" style="background: var(--bg-surface);">
+                        <div id="foldPerformancePlot" style="height: 300px; width: 100%;"></div>
+                    </div>
+
+                    <!-- Tables: Fold breakdown & Confusion Matrix -->
+                    <div class="row g-4">
+                        <div class="col-lg-7">
+                            <h6 class="fw-bold text-light mb-2"><i class="bi bi-list-check me-1"></i> Fold-by-Fold Performance Breakdown</h6>
+                            <div class="table-responsive">
+                                <table class="fw-table">
+                                    <thead id="foldBreakdownHead">
+                                        <tr>
+                                            <th>Fold #</th>
+                                            <th>Primary Score</th>
+                                            <th>Train Samples</th>
+                                            <th>Val Samples</th>
+                                            <th>Time (s)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="foldBreakdownTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-lg-5" id="confusionMatrixContainer">
+                            <h6 class="fw-bold text-light mb-2"><i class="bi bi-grid-3x3 me-1"></i> Confusion Matrix Heatmap</h6>
+                            <div id="confusionMatrixPlot" style="height: 240px; width: 100%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Methodological Takeaway Note -->
+                    <div class="mt-4 p-3 rounded" style="background: rgba(99,102,241,0.06); border: 1px dashed rgba(99,102,241,0.3);">
+                        <div class="small fw-semibold text-info mb-1"><i class="bi bi-lightbulb-fill me-1"></i> Validation Insight</div>
+                        <div class="small text-secondary" id="methodologicalNoteText">
+                            Notice the score variance across folds (&sigma;). A high standard deviation signals sensitivity to data partitioning. Stratified K-Fold stabilizes evaluation by preserving target class balance.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const datasetSelect = document.getElementById('trainDatasetSelect');
+    const targetInput = document.getElementById('trainTargetInput');
+    const methodSelect = document.getElementById('trainMethodSelect');
+    const algoSelect = document.getElementById('trainAlgoSelect');
+    const classifierGroup = document.getElementById('classifierGroup');
+    const regressorGroup = document.getElementById('regressorGroup');
+    const form = document.getElementById('trainingConfigForm');
+    const statusBadge = document.getElementById('executionStatusBadge');
+
+    // Sync task type with dataset
+    function syncDatasetSelection() {
+        const val = datasetSelect.value;
+        if (val === 'iris') {
+            targetInput.value = 'target';
+            classifierGroup.style.display = 'block';
+            regressorGroup.style.display = 'none';
+            algoSelect.value = 'LogisticRegression';
+            methodSelect.value = 'stratified';
+        } else if (val === 'breast_cancer') {
+            targetInput.value = 'target';
+            classifierGroup.style.display = 'block';
+            regressorGroup.style.display = 'none';
+            algoSelect.value = 'LogisticRegression';
+            methodSelect.value = 'stratified';
+        } else if (val === 'wine_quality') {
+            targetInput.value = 'quality';
+            classifierGroup.style.display = 'none';
+            regressorGroup.style.display = 'block';
+            algoSelect.value = 'RandomForestRegressor';
+            methodSelect.value = 'kfold';
+        } else if (val === 'air_passengers') {
+            targetInput.value = 'Passengers';
+            classifierGroup.style.display = 'none';
+            regressorGroup.style.display = 'block';
+            algoSelect.value = 'RandomForestRegressor';
+            methodSelect.value = 'timeseries';
+        }
+        toggleMethodControls();
+    }
+
+    function toggleMethodControls() {
+        const isNested = (methodSelect.value === 'nested');
+        const isTimeSeries = (methodSelect.value === 'timeseries');
+        const standardRow = document.getElementById('standardCvParamsRow');
+        const nestedBox = document.getElementById('nestedConfigBox');
+        const tsBox = document.getElementById('timeseriesConfigBox');
+
+        nestedBox.style.display = isNested ? 'block' : 'none';
+        tsBox.style.display = isTimeSeries ? 'block' : 'none';
+        standardRow.style.display = (!isNested && !isTimeSeries) ? 'flex' : 'none';
+    }
+
+    datasetSelect.addEventListener('change', syncDatasetSelection);
+    methodSelect.addEventListener('change', toggleMethodControls);
+    syncDatasetSelection();
+
+    // Check URL parameters (e.g. ?method=kfold or ?dataset=breast_cancer)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('dataset')) {
+        datasetSelect.value = urlParams.get('dataset');
+        syncDatasetSelection();
+    }
+    if (urlParams.has('method')) {
+        methodSelect.value = urlParams.get('method');
+        toggleMethodControls();
+    }
+    if (urlParams.has('target')) {
+        targetInput.value = urlParams.get('target');
+    }
+
+    // Execute Experiment Submission
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const isNested = (methodSelect.value === 'nested');
+        const isTimeSeries = (methodSelect.value === 'timeseries');
+        let nSplitsVal = parseInt(document.getElementById('trainNFolds').value || 5);
+        if (isNested) {
+            nSplitsVal = parseInt(document.getElementById('trainOuterFolds').value || 5);
+        } else if (isTimeSeries) {
+            nSplitsVal = parseInt(document.getElementById('trainTsSplits').value || 5);
+        }
+
+        const payload = {
+            dataset_name: datasetSelect.value,
+            target_column: targetInput.value,
+            validation_method: methodSelect.value,
+            algorithm: algoSelect.value,
+            n_splits: nSplitsVal,
+            outer_splits: parseInt(document.getElementById('trainOuterFolds').value || 5),
+            inner_splits: parseInt(document.getElementById('trainInnerFolds').value || 3),
+            gap: isTimeSeries ? parseInt(document.getElementById('trainTsGap').value || 0) : 0,
+            random_state: parseInt(document.getElementById('trainSeed').value || 42),
+            scaling: document.getElementById('trainScalingSelect').value,
+            imputation: document.getElementById('trainImputeSelect').value
+        };
+
+        const submitBtn = document.getElementById('executeExperimentBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Training Folds...';
+        
+        statusBadge.className = 'badge-pill warning';
+        statusBadge.innerHTML = isNested 
+            ? '<span class="spinner-border spinner-border-sm me-1"></span> Executing double-loop GridSearchCV...'
+            : (isTimeSeries 
+                ? '<span class="spinner-border spinner-border-sm me-1"></span> Evaluating chronological splits...'
+                : '<span class="spinner-border spinner-border-sm me-1"></span> Executing in-fold models...');
+
+        fetch('/api/experiments/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json().then(data => ({ status: res.status, body: data })))
+        .then(({ status, body }) => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-play-circle-fill fs-5"></i> <span>Execute Experiment</span>';
+
+            if (status === 200) {
+                statusBadge.className = 'badge-pill success';
+                statusBadge.innerHTML = '<i class="bi bi-check-circle-fill"></i> Experiment Completed';
+                renderExperimentResults(body);
+                showToast('Experiment Finished', `Successfully evaluated ${body.algorithm} using ${body.method}`, 'success');
+            } else {
+                statusBadge.className = 'badge-pill danger';
+                statusBadge.innerHTML = '<i class="bi bi-exclamation-circle-fill"></i> Failed';
+                showToast('Execution Error', body.error || 'Server error', 'danger');
+            }
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-play-circle-fill fs-5"></i> <span>Execute Experiment</span>';
+            statusBadge.className = 'badge-pill danger';
+            statusBadge.innerHTML = '<i class="bi bi-exclamation-circle-fill"></i> Connection Error';
+            showToast('Error', err.message, 'danger');
+        });
+    });
+
+    function renderExperimentResults(res) {
+        document.getElementById('resultsPlaceholder').style.display = 'none';
+        document.getElementById('resultsActiveContainer').style.display = 'block';
+
+        const isNested = (res.method === 'Nested Cross-Validation');
+        const isTimeSeries = (res.task_type === 'time_series' || res.method === 'Time-Series Cross-Validation');
+        
+        document.getElementById('resultsHeaderTitle').textContent = `${res.algorithm} on ${res.dataset_name}`;
+        if (isNested) {
+            document.getElementById('resultsHeaderSubtitle').textContent = `Method: Nested CV (${res.outer_splits} outer \u00D7 ${res.inner_splits} inner folds) \u2022 ID: ${res.experiment_id}`;
+        } else if (isTimeSeries) {
+            document.getElementById('resultsHeaderSubtitle').textContent = `Method: Time-Series CV (${res.n_splits} chronological splits, gap=${res.gap}) \u2022 ID: ${res.experiment_id}`;
+        } else {
+            document.getElementById('resultsHeaderSubtitle').textContent = `Method: ${res.method} (${res.n_splits} folds) \u2022 ID: ${res.experiment_id}`;
+        }
+
+        const s = res.summary;
+        const isClass = res.task_type === 'classification';
+        
+        document.getElementById('primaryMetricLabel').textContent = isClass ? 'Accuracy (Mean \u03BC)' : 'RMSE (Mean \u03BC)';
+        document.getElementById('valMeanScore').textContent = s.mean_score;
+        document.getElementById('valStdScore').textContent = `\u00B1 ${s.std_score}`;
+        document.getElementById('valMinMaxScore').textContent = `[${s.min_score} - ${s.max_score}]`;
+        document.getElementById('valExecutionTime').textContent = `${res.execution_time}s`;
+
+        // Render Nested Bias Card if Nested CV
+        const biasCard = document.getElementById('nestedBiasCard');
+        if (isNested && res.tuning_bias_analysis) {
+            biasCard.style.display = 'block';
+            const tb = res.tuning_bias_analysis;
+            document.getElementById('nestedInnerScore').textContent = tb.mean_inner_score;
+            document.getElementById('nestedOuterScore').textContent = tb.mean_outer_generalization_score;
+            document.getElementById('nestedBiasScore').textContent = `${tb.optimistic_bias > 0 ? '+' : ''}${tb.optimistic_bias}`;
+            document.getElementById('nestedBiasExplanation').textContent = tb.explanation;
+        } else {
+            biasCard.style.display = 'none';
+        }
+
+        // Render Time-Series Forecasting Cards if Time-Series CV
+        const tsCard = document.getElementById('timeseriesForecastCard');
+        if (isTimeSeries && res.forecast_timeline && res.forecast_timeline.length > 0) {
+            tsCard.style.display = 'block';
+            renderTimeSeriesForecastPlot(res.forecast_timeline);
+            renderTimeSeriesWindowsPlot(res.chronological_windows || []);
+        } else {
+            tsCard.style.display = 'none';
+        }
+
+        // Render Plotly Line Chart of Fold Scores
+        renderFoldPerformancePlot(s.scores_per_fold, s.mean_score, isClass ? 'Accuracy' : 'RMSE');
+
+        // Render Table Breakdown
+        const thead = document.getElementById('foldBreakdownHead');
+        if (isNested) {
+            thead.innerHTML = `
+                <tr>
+                    <th>Outer Fold #</th>
+                    <th>Outer Score</th>
+                    <th>Inner Tuning Score</th>
+                    <th>Best Hyperparameters Selected</th>
+                    <th>Time (s)</th>
+                </tr>
+            `;
+        } else if (isTimeSeries) {
+            thead.innerHTML = `
+                <tr>
+                    <th>Split / Fold #</th>
+                    <th>RMSE</th>
+                    <th>MAE</th>
+                    <th>MAPE (%)</th>
+                    <th>Train Window (Historical)</th>
+                    <th>Forecast Horizon (Val)</th>
+                    <th>Time (s)</th>
+                </tr>
+            `;
+        } else {
+            thead.innerHTML = `
+                <tr>
+                    <th>Fold #</th>
+                    <th>Primary Score</th>
+                    <th>Train Samples</th>
+                    <th>Val Samples</th>
+                    <th>Time (s)</th>
+                </tr>
+            `;
+        }
+
+        const tbody = document.getElementById('foldBreakdownTableBody');
+        tbody.innerHTML = res.fold_metrics.map((m, idx) => {
+            const alloc = res.fold_allocations[idx] || {};
+            const win = (res.chronological_windows && res.chronological_windows[idx]) || {};
+            const scoreVal = isClass ? m.accuracy : m.rmse;
+            
+            if (isNested) {
+                const paramsStr = m.best_params ? Object.entries(m.best_params).map(([k,v]) => `<strong>${k}:</strong> ${v}`).join(', ') : '-';
+                return `
+                    <tr>
+                        <td><strong>Fold ${m.fold}</strong></td>
+                        <td class="text-success fw-bold">${scoreVal}</td>
+                        <td class="text-info">${m.inner_score || '-'}</td>
+                        <td class="small text-light">${paramsStr}</td>
+                        <td class="text-secondary small">${m.duration}s</td>
+                    </tr>
+                `;
+            } else if (isTimeSeries) {
+                return `
+                    <tr>
+                        <td><strong>Fold ${m.fold}</strong></td>
+                        <td class="text-success fw-bold">${m.rmse}</td>
+                        <td class="text-info">${m.mae}</td>
+                        <td class="text-warning">${m.mape}%</td>
+                        <td class="small text-light">${win.train_date_range || alloc.train_samples + ' samples'}</td>
+                        <td class="small text-light">${win.val_date_range || alloc.val_samples + ' samples'}</td>
+                        <td class="text-secondary small">${m.duration}s</td>
+                    </tr>
+                `;
+            } else {
+                return `
+                    <tr>
+                        <td><strong>Fold ${m.fold}</strong></td>
+                        <td class="text-success fw-bold">${scoreVal}</td>
+                        <td class="text-muted">${alloc.train_samples || '-'}</td>
+                        <td class="text-light">${alloc.val_samples || '-'}</td>
+                        <td class="text-secondary small">${m.duration}s</td>
+                    </tr>
+                `;
+            }
+        }).join('');
+
+        // Render Confusion Matrix if classification
+        const cmContainer = document.getElementById('confusionMatrixContainer');
+        if (isClass && s.accumulated_confusion_matrix) {
+            cmContainer.style.display = 'block';
+            renderConfusionMatrixPlot(s.accumulated_confusion_matrix);
+        } else {
+            cmContainer.style.display = 'none';
+        }
+    }
+
+    function renderFoldPerformancePlot(scores, meanVal, metricName) {
+        const plotElem = document.getElementById('foldPerformancePlot');
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        const isDark = currentTheme === 'dark';
+
+        const foldLabels = scores.map((_, i) => `Fold ${i + 1}`);
+
+        const traceScores = {
+            x: foldLabels,
+            y: scores,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: `${metricName} per Fold`,
+            line: { color: '#38BDF8', width: 3 },
+            marker: { size: 9, color: '#6366F1' }
+        };
+
+        const traceMean = {
+            x: foldLabels,
+            y: Array(scores.length).fill(meanVal),
+            type: 'scatter',
+            mode: 'lines',
+            name: `Mean (${meanVal})`,
+            line: { color: '#10B981', dash: 'dash', width: 2 }
+        };
+
+        const layout = {
+            title: {
+                text: `Fold-wise Evaluation Curve (${metricName})`,
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 14 }
+            },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            xaxis: { gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
+            yaxis: {
+                title: metricName,
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+            },
+            legend: { orientation: 'h', y: -0.2 },
+            margin: { l: 50, r: 20, t: 35, b: 50 }
+        };
+
+        Plotly.newPlot(plotElem, [traceScores, traceMean], layout, { responsive: true, displayModeBar: false });
+    }
+
+    function renderConfusionMatrixPlot(cm) {
+        const plotElem = document.getElementById('confusionMatrixPlot');
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        const isDark = currentTheme === 'dark';
+
+        const labels = cm.map((_, i) => `Class ${i}`);
+
+        const trace = {
+            z: cm,
+            x: labels,
+            y: labels,
+            type: 'heatmap',
+            colorscale: 'Blues',
+            showscale: false
+        };
+
+        const layout = {
+            title: {
+                text: 'Accumulated Out-of-Fold Matrix',
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 12 }
+            },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            xaxis: { title: 'Predicted' },
+            yaxis: { title: 'Actual', autorange: 'reversed' },
+            margin: { l: 60, r: 20, t: 30, b: 40 }
+        };
+
+        Plotly.newPlot(plotElem, [trace], layout, { responsive: true, displayModeBar: false });
+    }
+
+    function renderTimeSeriesForecastPlot(timeline) {
+        const plotElem = document.getElementById('timeSeriesForecastPlot');
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        const isDark = currentTheme === 'dark';
+
+        const dates = timeline.map(pt => pt.date);
+        const actuals = timeline.map(pt => pt.actual);
+        const preds = timeline.map(pt => pt.predicted);
+
+        const traceActual = {
+            x: dates,
+            y: actuals,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'Historical Actuals (True Target)',
+            line: { color: '#10B981', width: 2.5 },
+            marker: { size: 5, color: '#059669' }
+        };
+
+        const traceForecast = {
+            x: dates,
+            y: preds,
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'Out-of-Sample Forecast (Model Predictions)',
+            line: { color: '#F59E0B', width: 2, dash: 'dot' },
+            marker: { size: 6, color: '#D97706', symbol: 'diamond' }
+        };
+
+        const layout = {
+            title: {
+                text: 'Strict Chronological Out-of-Sample Forecasting',
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 13 }
+            },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            xaxis: {
+                title: 'Chronological Horizon (Month / Timestamp)',
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Value (Passengers / Units)',
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+            },
+            legend: { orientation: 'h', y: -0.3 },
+            margin: { l: 50, r: 20, t: 35, b: 70 }
+        };
+
+        Plotly.newPlot(plotElem, [traceActual, traceForecast], layout, { responsive: true, displayModeBar: false });
+    }
+
+    function renderTimeSeriesWindowsPlot(windows) {
+        const plotElem = document.getElementById('timeSeriesWindowsPlot');
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        const isDark = currentTheme === 'dark';
+
+        const foldLabels = windows.map(w => `Split ${w.fold}`);
+        const trainSizes = windows.map(w => w.train_samples);
+        const valSizes = windows.map(w => w.val_samples);
+
+        const traceTrain = {
+            y: foldLabels,
+            x: trainSizes,
+            name: 'Historical Training Window (Past)',
+            type: 'bar',
+            orientation: 'h',
+            marker: { color: 'rgba(56, 189, 248, 0.85)' }
+        };
+
+        const traceVal = {
+            y: foldLabels,
+            x: valSizes,
+            name: 'Evaluation Horizon (Future)',
+            type: 'bar',
+            orientation: 'h',
+            marker: { color: 'rgba(245, 158, 11, 0.85)' }
+        };
+
+        const layout = {
+            title: {
+                text: 'Expanding Historical Training Windows & Future Validation Horizons',
+                font: { color: isDark ? '#F9FAFB' : '#0F172A', size: 13 }
+            },
+            barmode: 'stack',
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: { color: isDark ? '#9CA3AF' : '#475569', family: 'Inter, sans-serif' },
+            xaxis: {
+                title: 'Observations / Samples Sequence',
+                gridcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+            },
+            yaxis: {
+                autorange: 'reversed'
+            },
+            legend: { orientation: 'h', y: -0.3 },
+            margin: { l: 70, r: 20, t: 35, b: 60 }
+        };
+
+        Plotly.newPlot(plotElem, [traceTrain, traceVal], layout, { responsive: true, displayModeBar: false });
+    }
+});
+</script>
+{% endblock %}

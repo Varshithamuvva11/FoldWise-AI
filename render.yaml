@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: foldwise-ai
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_ENV
+        value: production
+
+# NOTE ON PERSISTENT STORAGE:
+# On Render Free tier, web services use an ephemeral disk. The bundled SQLite database
+# (with 280+ experiments) is included at deployment. To persist new experiments across
+# free-tier dyno restarts, upgrade to Starter and uncomment the persistent disk below:
+#
+#    disk:
+#      name: foldwise-data
+#      mountPath: /var/data
+#      sizeGB: 1
+#    envVars:
+#      - key: DATA_DIR
+#        value: /var/data
